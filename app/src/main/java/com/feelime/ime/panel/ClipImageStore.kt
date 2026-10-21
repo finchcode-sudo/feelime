@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.net.Uri
+import android.util.Log
 import android.util.Base64
 import androidx.core.content.FileProvider
 import org.json.JSONArray
@@ -44,14 +45,40 @@ class ClipImageStore(private val context: Context) {
 
     fun items(): List<ClipImage> = synchronized(lock) { readIndex() }
 
-    /** @return true when a NEW image was stored (false: duplicate/unsupported/too large). */
-    fun add(uri: Uri, mime: String, srcFingerprint: String): Boolean {
+    /** 读 uri 头部嗅探真实图片格式（不信任来源 app 声明的 MIME：很多 app 只
+     *  声明 text/uri-list 或 */*）。不是图片/读不了返回 null。 */
+    private fun sniffMime(uri: Uri): String? = try {
+        context.contentResolver.openInputStream(uri)?.use { stream ->
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeStream(stream, null, bounds)
+            if (bounds.outWidth > 0 && bounds.outHeight > 0) bounds.outMimeType else null
+        }
+    } catch (e: Exception) {
+        Log.w(TAG, "sniff failed for ${e.javaClass.simpleName}: ${e.message}")
+        null
+    }
+
+    /**
+     * @param declaredMime 来源声明的 MIME（可空/不可信）；实际格式以嗅探为准。
+     * @return true when a NEW image was stored (false: duplicate/not an image/
+     *         unsupported format/too large/unreadable — 原因写入 logcat 与诊断)。
+     */
+    fun add(uri: Uri, declaredMime: String?, srcFingerprint: String): Boolean {
+        val mime = sniffMime(uri)
+            ?: declaredMime?.takeIf { it.startsWith("image/") && it != "image/*" }
+        if (mime == null) {
+            Log.i(TAG, "clip uri is not a readable image: declared=$declaredMime")
+            return false
+        }
         val ext = when {
             mime.contains("png") -> "png"
             mime.contains("jpeg") || mime.contains("jpg") -> "jpg"
             mime.contains("webp") -> "webp"
             mime.contains("gif") -> "gif"
-            else -> return false
+            else -> {
+                Log.i(TAG, "unsupported image format: $mime")
+                return false
+            }
         }
         synchronized(lock) {
             if (readIndex().any { it.src == srcFingerprint }) return false
@@ -80,6 +107,7 @@ class ClipImageStore(private val context: Context) {
             if (bounds.outWidth <= 0 || bounds.outHeight <= 0) throw IOException("not an image")
             writeThumb(target, bounds, thumb)
         } catch (e: Exception) {
+            Log.w(TAG, "image capture failed: ${e.javaClass.simpleName}: ${e.message}")
             target.delete()
             thumb.delete()
             return false
@@ -190,6 +218,7 @@ class ClipImageStore(private val context: Context) {
     private fun nextId(): String = "f%011x".format(idCounter.incrementAndGet())
 
     private companion object {
+        const val TAG = "FeelimeClip"
         const val DIR_NAME = "clipboard_images"
         const val KEY = "images"
         const val MAX_IMAGES = 20

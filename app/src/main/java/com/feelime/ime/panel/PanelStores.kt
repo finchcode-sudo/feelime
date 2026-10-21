@@ -113,16 +113,21 @@ class ClipboardStore(private val context: Context) {
         // The flag is also used for version reports copied by Settings.
         // Reading the literal key works on older Android releases too.
         if (clip.description.extras?.getBoolean("android.content.extra.IS_SENSITIVE", false) == true) return
-        // 图片剪贴：uri + image/* MIME。必须先于 coerceToText 判断——图片项的
+        // 带 uri 的剪贴项（图片的典型形态）：必须先于 coerceToText 判断——它的
         // coerceToText 是 content:// 字符串，会被当成文字记进历史。
-        val imageMime = imageMimeOf(clip)
-        val imageUri = clip.getItemAt(0).uri
-        if (imageMime != null && imageUri != null) {
-            captureImage(imageUri, imageMime)
+        // 来源声明的 MIME 不可信（很多 app 只写 text/uri-list），所以只要有
+        // uri 就进后台嗅探；嗅探发现不是图片，才退回按文字记录（旧行为）。
+        val item = clip.getItemAt(0)
+        val uri = item.uri
+        if (uri != null) {
+            captureUriClip(uri, imageMimeOf(clip), item.coerceToText(context)?.toString())
             return
         }
-        val text = clip.getItemAt(0).coerceToText(context)?.toString() ?: return
-        if (text.isEmpty()) return
+        captureText(item.coerceToText(context)?.toString())
+    }
+
+    private fun captureText(text: String?) {
+        if (text.isNullOrEmpty()) return
         val fingerprint = fingerprintOf(text)
         if (suppress.shouldSuppress(fingerprint)) return
         record(text)
@@ -138,16 +143,22 @@ class ClipboardStore(private val context: Context) {
         return null
     }
 
-    /** 主线程只做抑制判断；拷贝在后台，落盘后回主线程解除抑制并通知面板。 */
-    private fun captureImage(uri: Uri, mime: String) {
+    /** 主线程只做抑制判断；嗅探/拷贝在后台，落盘后回主线程解除抑制并通知面板。
+     *  嗅探确认不是图片（如文件管理器复制的文档 uri）：回主线程按文字记录。 */
+    private fun captureUriClip(uri: Uri, declaredMime: String?, fallbackText: String?) {
         val fingerprint = fingerprintOf("img:$uri")
         if (suppress.shouldSuppress(fingerprint)) return
         imageWorker.execute {
-            val added = images.add(uri, mime, fingerprint)
-            if (added) {
-                mainHandler.post {
+            val added = images.add(uri, declaredMime, fingerprint)
+            mainHandler.post {
+                if (added) {
                     suppress.onRecorded()
                     onChanged?.invoke()
+                } else if (declaredMime == null) {
+                    // 声明里没有任何 image/*：多半是普通 uri（文件/联系人），
+                    // 保持旧行为按文字记。声明了图片却失败（权限/格式/过大）
+                    // 则什么都不记——不往历史里塞 content:// 垃圾串。
+                    captureText(fallbackText)
                 }
             }
         }
@@ -157,9 +168,11 @@ class ClipboardStore(private val context: Context) {
     private fun currentImageFingerprint(): String? {
         val clip = clipboard(context)?.primaryClip ?: return null
         if (clip.itemCount == 0) return null
-        if (imageMimeOf(clip) == null) return null
         val uri = clip.getItemAt(0).uri ?: return null
-        return fingerprintOf("img:$uri")
+        val fingerprint = fingerprintOf("img:$uri")
+        // 声明不可信：以「是否已作为图片入库」为准。
+        val known = imageMimeOf(clip) != null || images.items().any { it.src == fingerprint }
+        return if (known) fingerprint else null
     }
 
     private var registered = false
@@ -257,8 +270,8 @@ class ClipboardStore(private val context: Context) {
         if (clip.description.extras?.getBoolean("android.content.extra.IS_SENSITIVE", false) == true) {
             return null
         }
-        // 图片剪贴的 coerceToText 只是 content:// 串，不是可抑制的文字。
-        if (imageMimeOf(clip) != null && clip.getItemAt(0).uri != null) return null
+        // 带 uri 的剪贴（图片）的 coerceToText 只是 content:// 串，不是可抑制的文字。
+        if (clip.getItemAt(0).uri != null) return null
         return clip.getItemAt(0).coerceToText(context)?.toString()?.takeIf { it.isNotEmpty() }
     }
 
