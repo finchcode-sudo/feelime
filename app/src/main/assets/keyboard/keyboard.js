@@ -300,7 +300,7 @@
         });
     }
 
-    const KEYBOARD_VERSION = '3.73.50';
+    const KEYBOARD_VERSION = '3.73.51';
     // #39-12 收口：整屏级互斥视图注册表（单一事实源）。统计浮层、
     // 定制面板两轮同款叠层事故的根因是互关调用散装在各个 toggle 里，
     // 新视图忘了关所有人就叠加。现在：新视图在此登记一次（怎么判开、
@@ -9679,7 +9679,20 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             const empty = document.getElementById('panelEmpty');
             list.replaceChildren();
             const layer = document.getElementById('panelLayer');
-            layer.querySelectorAll('.panel-note').forEach(node => node.remove());
+            layer.querySelectorAll('.panel-note, .panel-hint').forEach(node => node.remove());
+            if (this.panelTab === 'clipboard' && this.clipboardNeedsPhotoPermission
+                && !this.photoHintDismissed && typeof Native.openPhotoSettings === 'function') {
+                const hint = document.createElement('div');
+                hint.className = 'panel-note panel-hint';
+                hint.textContent = t("想在这里直接粘贴刚截的屏？点此到系统设置开启「照片」权限");
+                hint.addEventListener('click', () => {
+                    // 本次键盘会话内只提示一次，点过就收起。
+                    this.photoHintDismissed = true;
+                    this.call(() => Native.openPhotoSettings(this.token));
+                    hint.remove();
+                });
+                layer.append(hint);
+            }
             if (this.panelTab === 'clipboard' && this.clipboardNote) {
                 const note = document.createElement('div');
                 note.className = 'panel-note';
@@ -10322,6 +10335,8 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             this.clipboardItems = merged;
             // 原生给的图片抓取诊断（失败原因）；空 = 没有要报告的。
             this.clipboardNote = String(payload.note || '');
+            // 没有「照片」权限时才给授权入口；旧原生无该字段 = 不显示。
+            this.clipboardNeedsPhotoPermission = payload.shotPermission === false;
             if (this.panelOpen && this.panelTab === 'clipboard') this.renderPanel();
         }
 

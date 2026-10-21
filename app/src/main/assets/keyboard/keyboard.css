@@ -1726,6 +1726,7 @@ body.landscape .panel-head { margin: var(--preedit-band, 18px) 0 4px; }
     text-align: center;
     word-break: break-all;
 }
+.panel-hint { color: var(--accent-strong); text-decoration: underline; }
 #panelEmpty {
     flex: 1;
     display: flex;

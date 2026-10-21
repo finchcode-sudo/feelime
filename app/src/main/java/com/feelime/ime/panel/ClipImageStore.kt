@@ -152,16 +152,34 @@ class ClipImageStore(private val context: Context) {
     fun remove(id: String) {
         synchronized(lock) {
             val all = readIndex()
-            all.firstOrNull { it.id == id }?.let { deleteFiles(it) }
+            all.firstOrNull { it.id == id }?.let {
+                deleteFiles(it)
+                dismiss(it.src)
+            }
             writeIndex(all.filter { it.id != id })
         }
     }
 
     fun clear() {
         synchronized(lock) {
-            readIndex().forEach { deleteFiles(it) }
+            readIndex().forEach {
+                deleteFiles(it)
+                dismiss(it.src)
+            }
             writeIndex(emptyList())
         }
+    }
+
+    /** 用户删掉/清空过的来源指纹：自动导入（最近截图）据此不再复活它们。 */
+    fun isDismissed(fingerprint: String): Boolean =
+        prefs.getStringSet(DISMISSED_KEY, emptySet()).orEmpty().contains(fingerprint)
+
+    private fun dismiss(fingerprint: String) {
+        if (fingerprint.isEmpty()) return
+        val all = prefs.getStringSet(DISMISSED_KEY, emptySet()).orEmpty().toMutableSet()
+        all.add(fingerprint)
+        val bounded = if (all.size > 100) all.toList().takeLast(100).toSet() else all
+        prefs.edit().putStringSet(DISMISSED_KEY, bounded).apply()
     }
 
     /** 缩略图 data: uri（键盘页 CSP 允许 img-src data:）；文件缺失返回 null。 */
@@ -245,6 +263,7 @@ class ClipImageStore(private val context: Context) {
         const val TAG = "FeelimeClip"
         const val DIR_NAME = "clipboard_images"
         const val KEY = "images"
+        const val DISMISSED_KEY = "dismissed_src"
         const val MAX_IMAGES = 20
         const val MAX_BYTES = 8L * 1024 * 1024
         const val THUMB_PX = 160

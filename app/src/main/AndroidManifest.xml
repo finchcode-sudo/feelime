@@ -10,6 +10,12 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Model download consent checks whether the active network is metered. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- 剪贴板面板的「最近截图」：读相册里刚截的屏（可选；用户在系统设置里
+         给「照片」权限才生效，不授权不影响其他功能）。 -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
     <!-- 词库编译保活（CompileGuardService）：分钟级批处理跑在设置页进程，
          无 FGS 时灭屏数分钟即被厂商系统清理（ace 实录 am_proc_died）。 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />

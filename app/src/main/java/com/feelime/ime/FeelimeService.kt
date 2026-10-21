@@ -1261,7 +1261,10 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         // carry a password/Direct restriction into a normal text editor.
         val sensitive = isSensitiveEditor(attribute)
         clipboardStore.collectEnabled = !sensitive
-        if (clipboardStore.collectEnabled) clipboardStore.captureCurrent()
+        if (clipboardStore.collectEnabled) {
+            clipboardStore.captureCurrent()
+            clipboardStore.importRecentScreenshot()
+        }
         // TYPE_NULL (terminal) editors: force the Direct engine there - see
  // TextInputCoordinator.onEditorStarted .
         val terminalLike = isTerminalLikeEditor(attribute)
@@ -1393,7 +1396,10 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         // Restore collection disabled by onFinishInputView and capture copies
         // made while hidden, except for sensitive editors.
         clipboardStore.collectEnabled = !isSensitiveEditor()
-        if (clipboardStore.collectEnabled) clipboardStore.captureCurrent()
+        if (clipboardStore.collectEnabled) {
+            clipboardStore.captureCurrent()
+            clipboardStore.importRecentScreenshot()
+        }
  // A fresh show always lands on the main view - a
         // keyboard hidden from the symbol layer must not come back there.
         if (!restarting) {
@@ -2170,6 +2176,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
                 }
             },
         ).put("note", if (sensitive) "" else clipboardStore.imageNote)
+            .put("shotPermission", clipboardStore.hasPhotoPermission())
         evaluate("window.Feelime && window.Feelime.onClipboard && window.Feelime.onClipboard($payload)")
     }
 
@@ -3692,7 +3699,21 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
 
         @JavascriptInterface
         fun getClipboard(token: String) = guarded(token, limited = false) {
-            onMain { pushClipboard() }
+            onMain {
+                // 打开面板时再扫一次相册里刚截的屏（键盘开着时截的屏不会触发聚焦抓取）。
+                if (clipboardStore.collectEnabled) clipboardStore.importRecentScreenshot()
+                pushClipboard()
+            }
+        }
+
+        /** 「最近截图」需要照片权限：跳到本应用的系统设置页，用户在那里开启。 */
+        @JavascriptInterface
+        fun openPhotoSettings(token: String) = guarded(token, limited = true) {
+            val intent = android.content.Intent(
+                android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                android.net.Uri.fromParts("package", packageName, null),
+            ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            runCatching { startActivity(intent) }
         }
 
         /** 剪贴板图片上屏。结果异步回键盘：onClipImagePaste(ok, reason)。 */

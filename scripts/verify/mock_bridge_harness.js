@@ -815,6 +815,9 @@ class MockNative {
     commitText(text, token) {
         this._record('commitText', [text, token]);
     }
+    openPhotoSettings(token) {
+        this._record('openPhotoSettings', [token]);
+    }
     pasteClipImage(id, token) {
         this._record('pasteClipImage', [id, token]);
     }

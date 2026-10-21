@@ -174,7 +174,10 @@ class ClipboardStore(private val context: Context) {
         if (suppress.shouldSuppress(fingerprint)) return
         // 已作为图片入库的同一来源：每次聚焦都会重抓，直接跳过——否则重复项
         // 会被当成「不是图片」而误记一条 content:// 文字。
-        if (images.items().any { it.src == fingerprint }) return
+        if (images.items().any { it.src == fingerprint }) {
+            imageNote = ""
+            return
+        }
         imageWorker.execute {
             val added = images.add(uri, declaredMime, fingerprint)
             mainHandler.post {
@@ -192,6 +195,23 @@ class ClipboardStore(private val context: Context) {
             }
         }
     }
+
+    /** 刚截的屏（相册里最近 10 分钟内）作为图片条目并入剪贴板历史。需要用户在
+     *  系统设置里给「照片」权限；没权限直接跳过。删除/清空过的不会复活。 */
+    fun importRecentScreenshot() {
+        if (!RecentScreenshot.hasPermission(context)) return
+        imageWorker.execute {
+            val shot = RecentScreenshot.latest(context) ?: return@execute
+            val fingerprint = fingerprintOf("shot:${shot.id}")
+            if (images.isDismissed(fingerprint)) return@execute
+            if (images.items().any { it.src == fingerprint }) return@execute
+            if (images.add(shot.uri, shot.mime, fingerprint)) {
+                mainHandler.post { onChanged?.invoke() }
+            }
+        }
+    }
+
+    fun hasPhotoPermission(): Boolean = RecentScreenshot.hasPermission(context)
 
     /** 当前系统剪贴板是图片时的来源指纹（与 captureImage 同口径）；否则 null。 */
     private fun currentImageFingerprint(): String? {
