@@ -2094,7 +2094,7 @@ test('clipboard panel shows image thumbnails mixed by time; tap pastes via nativ
     world.context.window.Feelime.onClipImagePaste(false, 'unsupported');
     assert(!world.$('panelLayer').hidden, 'failed paste keeps the panel open');
     world.context.window.Feelime.onClipImagePaste(true, '');
-    equal(world.$('panelLayer').hidden, true, 'successful paste closes the panel');
+    equal(world.$('panelLayer').hidden, false, 'successful paste keeps the panel open');
 });
 
 test('clipboard panel shows the image-capture diagnostic note only when native reports one', {since: '3.73.50'}, () => {
@@ -6259,7 +6259,7 @@ test('clipboard items render, paste commits via pasteText (issue #44)', () => {
         equal(commits.length, 1, 'legacy keyboard: paste goes through commitText');
         equal(commits[0].args[0], 'second', 'full text committed');
     }
-    assert(world.$('panelLayer').hidden, 'panel closes after paste');
+    assert(!world.$('panelLayer').hidden, 'clipboard panel stays open after paste (paste several in a row)');
 });
 
 test('remove and clear clipboard hit the bridge with hex ids', () => {

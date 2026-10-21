@@ -300,7 +300,7 @@
         });
     }
 
-    const KEYBOARD_VERSION = '3.73.51';
+    const KEYBOARD_VERSION = '3.73.52';
     // #39-12 收口：整屏级互斥视图注册表（单一事实源）。统计浮层、
     // 定制面板两轮同款叠层事故的根因是互关调用散装在各个 toggle 里，
     // 新视图忘了关所有人就叠加。现在：新视图在此登记一次（怎么判开、
@@ -9735,7 +9735,9 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                             Native.pasteText(item.text, this.token);
                         }
                     });
-                    this.closePanel();
+                    // 剪贴板条目粘贴后面板保持打开（可以连着粘贴多条）；
+                    // 常用语粘贴后仍然收起回键盘。
+                    if (this.panelTab !== 'clipboard') this.closePanel();
                 };
 
                 if (this.panelTab === 'clipboard' && item.image) {
@@ -10340,13 +10342,10 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             if (this.panelOpen && this.panelTab === 'clipboard') this.renderPanel();
         }
 
-        /** 图片上屏结果（原生异步回传）：成功收面板，失败按原因提示。
-         * 失败时面板保持打开，用户可以改选别的条目。 */
+        /** 图片上屏结果（原生异步回传）：成功时面板保持打开（与文字条目一致，
+         * 粘贴后不自动回键盘），失败按原因提示，用户可以改选别的条目。 */
         onClipImagePaste(ok, reason) {
-            if (ok) {
-                this.closePanel();
-                return;
-            }
+            if (ok) return;
             const messages = {
                 unsupported: "当前输入框不支持粘贴图片",
                 sensitive: "此处不能粘贴图片",
