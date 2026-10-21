@@ -1424,7 +1424,8 @@ body.landscape .ink-rail .kb-key {
 .emoji-key {
     border: 0;
     border-radius: var(--radius-key);
-    background: var(--key);
+    /* 去掉每个表情外围的底色框：表情直接铺在键盘底上，按下才亮。 */
+    background: transparent;
     color: var(--text);
     font-size: min(22px, calc(var(--kb-row-h, 44px) * 0.52));
     display: flex;
@@ -1438,6 +1439,9 @@ body.landscape .ink-rail .kb-key {
 /* 底部条：返回键（固定）+ 分类条（横向滚动）。 */
 .emoji-bar { display: flex; gap: 4px; min-width: 0; }
 .emoji-bar .num-back { flex: none; width: calc(var(--kb-row-h, 44px) * 1.3); }
+/* 底部条压矮：返回键与分类页签只取行高的 0.7，把空间还给表情。 */
+.emoji-bar .num-back,
+.emoji-bar .sym-cat { height: calc(var(--kb-row-h, 44px) * 0.7); }
 body.landscape .num-grid { gap: 3px; }
 
 /* Long-press affordance (design §1.2): ONLY keys whose long-press opens
