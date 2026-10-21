@@ -2169,7 +2169,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
                     put(JSONObject().put("id", image.id).put("time", image.time).put("thumb", thumb))
                 }
             },
-        )
+        ).put("note", if (sensitive) "" else clipboardStore.imageNote)
         evaluate("window.Feelime && window.Feelime.onClipboard && window.Feelime.onClipboard($payload)")
     }
 

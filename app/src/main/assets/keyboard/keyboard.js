@@ -300,7 +300,7 @@
         });
     }
 
-    const KEYBOARD_VERSION = '3.73.49';
+    const KEYBOARD_VERSION = '3.73.50';
     // #39-12 收口：整屏级互斥视图注册表（单一事实源）。统计浮层、
     // 定制面板两轮同款叠层事故的根因是互关调用散装在各个 toggle 里，
     // 新视图忘了关所有人就叠加。现在：新视图在此登记一次（怎么判开、
@@ -9679,6 +9679,13 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             const empty = document.getElementById('panelEmpty');
             list.replaceChildren();
             const layer = document.getElementById('panelLayer');
+            layer.querySelectorAll('.panel-note').forEach(node => node.remove());
+            if (this.panelTab === 'clipboard' && this.clipboardNote) {
+                const note = document.createElement('div');
+                note.className = 'panel-note';
+                note.textContent = this.clipboardNote;
+                layer.append(note);
+            }
             const items = this.panelTab === 'clipboard' ? this.clipboardItems : this.favoriteItems;
             empty.hidden = items.length > 0;
             // 空态不铺整块列表背景（验收反馈）：列表收起、提示只占一行，
@@ -10313,6 +10320,8 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 merged.push(takeImage ? images[ii++] : texts[ti++]);
             }
             this.clipboardItems = merged;
+            // 原生给的图片抓取诊断（失败原因）；空 = 没有要报告的。
+            this.clipboardNote = String(payload.note || '');
             if (this.panelOpen && this.panelTab === 'clipboard') this.renderPanel();
         }
 

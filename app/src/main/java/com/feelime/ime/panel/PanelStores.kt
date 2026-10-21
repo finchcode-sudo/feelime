@@ -64,6 +64,11 @@ class ClipboardStore(private val context: Context) {
         .getSharedPreferences("feelime_clipboard", Context.MODE_PRIVATE)
     private val idCounter = AtomicLong(System.currentTimeMillis())
 
+    /** 最近一次「疑似图片剪贴」的处理结果（失败原因/读不到剪贴板）；空 = 没有
+     *  要报告的。面板底部诊断行显示它——图片抓不到时用户能直接截图反馈。 */
+    @Volatile var imageNote: String = ""
+        private set
+
     /** 图片历史（与文字分开存；面板按时间合并显示）。 */
     val images = ClipImageStore(context)
 
@@ -108,7 +113,11 @@ class ClipboardStore(private val context: Context) {
      * that differs from the suppressed fingerprint is a REAL new recording.
      */
     fun captureCurrent(fromFocus: Boolean = true) {
-        val clip = clipboard(context)?.primaryClip ?: return
+        val clip = clipboard(context)?.primaryClip
+        if (clip == null) {
+            imageNote = "未能读取系统剪贴板（输入法需在输入框聚焦时才有权限）"
+            return
+        }
         if (clip.itemCount == 0) return
         // The flag is also used for version reports copied by Settings.
         // Reading the literal key works on older Android releases too.
@@ -117,12 +126,27 @@ class ClipboardStore(private val context: Context) {
         // coerceToText 是 content:// 字符串，会被当成文字记进历史。
         // 来源声明的 MIME 不可信（很多 app 只写 text/uri-list），所以只要有
         // uri 就进后台嗅探；嗅探发现不是图片，才退回按文字记录（旧行为）。
-        val item = clip.getItemAt(0)
-        val uri = item.uri
+        // 一个 ClipData 可能有多项（多选复制）：取第一个带 uri 的。
+        var item = clip.getItemAt(0)
+        var uri = item.uri
+        if (uri == null) {
+            for (index in 1 until clip.itemCount) {
+                val candidate = clip.getItemAt(index)
+                if (candidate.uri != null) {
+                    item = candidate
+                    uri = candidate.uri
+                    break
+                }
+            }
+        }
         if (uri != null) {
+            val types = (0 until clip.description.mimeTypeCount)
+                .joinToString(",") { clip.description.getMimeType(it) }
+            imageNote = "收到带地址的剪贴（类型 $types），处理中"
             captureUriClip(uri, imageMimeOf(clip), item.coerceToText(context)?.toString())
             return
         }
+        imageNote = ""
         captureText(item.coerceToText(context)?.toString())
     }
 
@@ -154,6 +178,8 @@ class ClipboardStore(private val context: Context) {
         imageWorker.execute {
             val added = images.add(uri, declaredMime, fingerprint)
             mainHandler.post {
+                imageNote = if (added) "" else
+                    "图片抓取失败：${images.lastError.ifEmpty { "未知原因" }}（来源类型 ${declaredMime ?: "无"}）"
                 if (added) {
                     suppress.onRecorded()
                     onChanged?.invoke()

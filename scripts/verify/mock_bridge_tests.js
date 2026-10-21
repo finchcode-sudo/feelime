@@ -2097,6 +2097,24 @@ test('clipboard panel shows image thumbnails mixed by time; tap pastes via nativ
     equal(world.$('panelLayer').hidden, true, 'successful paste closes the panel');
 });
 
+test('clipboard panel shows the image-capture diagnostic note only when native reports one', {since: '3.73.50'}, () => {
+    const world = fresh();
+    world.hello({});
+    world.tap(world.$('clipboardButton'));
+    world.context.window.Feelime.onClipboard({
+        items: [{ id: '0000000000a1', time: 100, text: 'hello' }], images: [], note: '',
+    });
+    assert(!world.document.querySelector('.panel-note'), 'no note when native has nothing to report');
+    world.context.window.Feelime.onClipboard({
+        items: [{ id: '0000000000a1', time: 100, text: 'hello' }], images: [],
+        note: '图片抓取失败：SecurityException（来源类型 image/png）',
+    });
+    const note = world.document.querySelector('.panel-note');
+    assert(note && note.textContent.includes('SecurityException'), 'failure reason is shown');
+    world.context.window.Feelime.onClipboard({ items: [], images: [], note: '' });
+    assert(!world.document.querySelector('.panel-note'), 'note clears with the next push');
+});
+
 // #39-4 定稿（用户验收 2026-09-27 二轮）：面板头不携带任何工具栏图标
 // ——tab 是唯一切换器，右侧只有一颗 ×（panelClose）回主键盘。
 test('panel head carries no toolbar icons; a single X closes (#39-4)', {since: '3.69.24'}, () => {

@@ -1716,6 +1716,16 @@ body.landscape .panel-head { margin: var(--preedit-band, 18px) 0 4px; }
     color: var(--muted);
     font-size: 16px;
 }
+/* 图片抓取诊断行：只在抓取失败时出现，小字、可截图。 */
+.panel-note {
+    flex: none;
+    padding: 6px 8px;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.4;
+    text-align: center;
+    word-break: break-all;
+}
 #panelEmpty {
     flex: 1;
     display: flex;

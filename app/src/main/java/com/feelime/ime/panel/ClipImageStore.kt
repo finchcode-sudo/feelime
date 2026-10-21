@@ -43,19 +43,39 @@ class ClipImageStore(private val context: Context) {
     private val idCounter = AtomicLong(System.currentTimeMillis())
     private val lock = Any()
 
+    /** 最近一次抓取失败的原因（给面板诊断行显示；成功/无事发生为空）。 */
+    @Volatile var lastError: String = ""
+        private set
+    @Volatile private var sniffError: String = ""
+
     fun items(): List<ClipImage> = synchronized(lock) { readIndex() }
 
     /** 读 uri 头部嗅探真实图片格式（不信任来源 app 声明的 MIME：很多 app 只
      *  声明 text/uri-list 或通配类型）。不是图片/读不了返回 null。 */
-    private fun sniffMime(uri: Uri): String? = try {
-        context.contentResolver.openInputStream(uri)?.use { stream ->
-            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeStream(stream, null, bounds)
-            if (bounds.outWidth > 0 && bounds.outHeight > 0) bounds.outMimeType else null
+    private fun sniffMime(uri: Uri): String? {
+        sniffError = ""
+        return try {
+            val stream = context.contentResolver.openInputStream(uri)
+            if (stream == null) {
+                sniffError = "来源没给出数据流"
+                null
+            } else {
+                stream.use {
+                    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    BitmapFactory.decodeStream(it, null, bounds)
+                    if (bounds.outWidth > 0 && bounds.outHeight > 0) {
+                        bounds.outMimeType
+                    } else {
+                        sniffError = "内容不是可解码的图片"
+                        null
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "sniff failed for ${e.javaClass.simpleName}: ${e.message}")
+            sniffError = "${e.javaClass.simpleName}: ${e.message}"
+            null
         }
-    } catch (e: Exception) {
-        Log.w(TAG, "sniff failed for ${e.javaClass.simpleName}: ${e.message}")
-        null
     }
 
     /**
@@ -68,6 +88,7 @@ class ClipImageStore(private val context: Context) {
             ?: declaredMime?.takeIf { it.startsWith("image/") && it != "image/*" }
         if (mime == null) {
             Log.i(TAG, "clip uri is not a readable image: declared=$declaredMime")
+            lastError = sniffError.ifEmpty { "读不出图片" }
             return false
         }
         val ext = when {
@@ -77,6 +98,7 @@ class ClipImageStore(private val context: Context) {
             mime.contains("gif") -> "gif"
             else -> {
                 Log.i(TAG, "unsupported image format: $mime")
+                lastError = "暂不支持的图片格式 $mime"
                 return false
             }
         }
@@ -108,10 +130,12 @@ class ClipImageStore(private val context: Context) {
             writeThumb(target, bounds, thumb)
         } catch (e: Exception) {
             Log.w(TAG, "image capture failed: ${e.javaClass.simpleName}: ${e.message}")
+            lastError = "${e.javaClass.simpleName}: ${e.message}"
             target.delete()
             thumb.delete()
             return false
         }
+        lastError = ""
         synchronized(lock) {
             val next = ArrayList<ClipImage>()
             next.add(ClipImage(id, System.currentTimeMillis(), mime, target.name, srcFingerprint))
