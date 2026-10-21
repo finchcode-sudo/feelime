@@ -704,6 +704,9 @@ class MockNative {
     setKeyboardHeight(totalCssPx, token) {
         this._record('setKeyboardHeight', [totalCssPx, token]);
     }
+    setTransientKeyboardHeight(totalCssPx, token) {
+        this._record('setTransientKeyboardHeight', [totalCssPx, token]);
+    }
     // design §15: the settings page's native table mirror.
     customKeys(token) {
         this._record('customKeys', [token]);

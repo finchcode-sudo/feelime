@@ -3178,6 +3178,30 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         fun setKeyboardHeightNow(heightCssPx: Int, token: String) =
             guarded(token, limited = false) { setKeyboardHeightInternal(heightCssPx, immediate = true) }
 
+        /** 表情子视图的临时增高：只改内存 override 并重排，**不写 pref**
+         *  （区别于 setKeyboardHeight）。0 = 还原到用户保存的高度。
+         *  钳制口径与 setKeyboardHeightInternal 一致（竖屏 [226, 真屏
+         *  45%]，横屏 [170, landscapeCeil]）。进程被杀/键盘重建时
+         *  override 本就从 pref 重读，临时值不会残留。 */
+        @JavascriptInterface
+        fun setTransientKeyboardHeight(heightCssPx: Int, token: String) =
+            guarded(token, limited = false) {
+                val landscape = resources.configuration.orientation ==
+                    android.content.res.Configuration.ORIENTATION_LANDSCAPE
+                val target = if (heightCssPx <= 0) {
+                    storedKeyboardHeight()
+                } else {
+                    val physical = (heightCssPx * resources.displayMetrics.density).toInt()
+                    val min = dp(if (landscape) 170 else 226)
+                    val max = if (landscape) landscapeCeilPx() else (realHeightPixels() * 45) / 100
+                    physical.coerceIn(min, maxOf(min, max))
+                }
+                if (target != keyboardHeightOverride) {
+                    keyboardHeightOverride = target
+                    (keyboardView?.parent as? View)?.requestLayout()
+                }
+            }
+
         private fun setKeyboardHeightInternal(heightCssPx: Int, immediate: Boolean) {
             val landscape =
                 resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE

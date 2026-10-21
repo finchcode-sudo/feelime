@@ -8140,6 +8140,24 @@ test('t9 function keys: confirm/重输/1/123/emoji', {since: '3.35.0'}, () => {
     assert(world.document.querySelector('.emoji-area'), 'emoji view is showing');
 });
 
+test('emoji view raises the keyboard transiently and restores on exit', {since: '3.73.45'}, () => {
+    const world = fresh({ mode: 't9' });
+    const calls = () => world.native.of('setTransientKeyboardHeight');
+    const persisted = world.native.of('setKeyboardHeight').length;
+    world.tap(world.document.querySelector('[data-role="symbols"]'));
+    equal(calls().length, 0, 'plain nine-pad does not raise the keyboard');
+    world.tap(world.document.querySelector('[data-role="emoji"]'));
+    assert(world.document.querySelector('.emoji-area'), 'emoji view is showing');
+    equal(calls().length, 1, 'opening emoji raises once');
+    assert(calls()[0].args[0] > 0, 'raised to a positive height');
+    // 回字母层要还原为 0。
+    world.tap(world.document.querySelector('[data-role="numpad-back"]'));
+    equal(calls().length, 2, 'leaving emoji restores');
+    equal(calls()[1].args[0], 0, 'restore passes 0 (native rereads the saved height)');
+    equal(world.native.of('setKeyboardHeight').length, persisted,
+        'transient height never goes through the persisting bridge');
+});
+
 test('t9 1-key chrome: tap yields toolbar, pick/× restores, up-flick commits 1', {since: '3.36.0'}, () => {
     const world = fresh({ mode: 't9' });
     world.engineState({ phase: 'READY', mode: 't9', revision: 1, composing: '', rawInput: '',

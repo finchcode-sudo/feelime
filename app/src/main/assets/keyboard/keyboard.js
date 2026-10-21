@@ -300,7 +300,7 @@
         });
     }
 
-    const KEYBOARD_VERSION = '3.73.44';
+    const KEYBOARD_VERSION = '3.73.45';
     // #39-12 收口：整屏级互斥视图注册表（单一事实源）。统计浮层、
     // 定制面板两轮同款叠层事故的根因是互关调用散装在各个 toggle 里，
     // 新视图忘了关所有人就叠加。现在：新视图在此登记一次（怎么判开、
@@ -928,6 +928,10 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
     // Keyboard height (the letter key height) is tunable per
     // orientation; clamped so four rows always stay inside the budget.
     const KB_ROW_MIN = 32;
+    // 表情视图临时增高倍数：只在 emoji 子视图显示期间生效，经
+    // setTransientKeyboardHeight 走原生内存 override，不写 pref；退出
+    // 表情/收起重唤即还原到用户保存的高度。上限由原生钳制。
+    const EMOJI_HEIGHT_BOOST = 1.3;
     // 手写控制行键高（CSS px）：固定值，不参与 --kb-row-h 预算（键盘
     // 高度调节的弹性全部给书写面板）。
     const INK_CONTROL_ROW_H = 46;
@@ -5128,6 +5132,23 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 name === 'symbols' ? 'symbolLayer'
                     : name === 'numpad' ? 'numPadLayer' : 'qwertyLayer',
             ).hidden = false;
+            this.syncEmojiBoost();
+        }
+
+        /** 表情子视图显示时临时调高键盘，离开（回字母/符号层、切回数字
+         * 键区、重唤）即还原。状态机只在「应增高」翻转时发一次桥调用，
+         * 不会随 applyHeight 的 resize 回环。旧原生没有该桥方法则静默
+         * 跳过（高度不变，功能照常）。还原传 0：原生据此重读用户保存的
+         * 高度，JS 不用自己记基准。 */
+        syncEmojiBoost() {
+            const want = !!(this.emojiView && this.keyLayer === 'numpad');
+            if (want === !!this._emojiBoosted) return;
+            if (typeof Native.setTransientKeyboardHeight !== 'function') return;
+            this._emojiBoosted = want;
+            const value = want
+                ? Math.round(this.currentContentHeight() * EMOJI_HEIGHT_BOOST)
+                : 0;
+            this.call(() => Native.setTransientKeyboardHeight(value, this.token));
         }
 
         hideKeyLayers() {
@@ -5364,6 +5385,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
         toggleEmojiView() {
             this.emojiView = !this.emojiView;
             this.renderNumpad();
+            this.syncEmojiBoost();
         }
 
         emojiRecents() {
