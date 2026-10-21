@@ -300,7 +300,7 @@
         });
     }
 
-    const KEYBOARD_VERSION = '3.73.47';
+    const KEYBOARD_VERSION = '3.73.48';
     // #39-12 收口：整屏级互斥视图注册表（单一事实源）。统计浮层、
     // 定制面板两轮同款叠层事故的根因是互关调用散装在各个 toggle 里，
     // 新视图忘了关所有人就叠加。现在：新视图在此登记一次（怎么判开、
@@ -5237,28 +5237,32 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             const grid = document.createElement('div');
             grid.className = 'num-grid';
 
-            // Left column rows 1-3: the symbol strip. Plain clicks, NO
-            // bindTouch - its preventDefault would kill the vertical
-            // scroll (same lesson as the sym-cat strip).
-            const syms = document.createElement('div');
-            syms.className = 'num-syms';
-            NUM_PAD_SYMBOLS.forEach(value => {
-                const button = document.createElement('button');
-                button.className = 'num-sym-key';
-                button.textContent = value;
-                button.addEventListener('click', () => this.sendSymbol(value));
-                syms.append(button);
-            });
-            grid.append(syms);
+            // 表情视图整行铺满：不要左列符号条与独立返回键（返回键搬进
+            // 表情区底部分类条最左，见 renderEmojiArea）。
+            if (!this.emojiView) {
+                // Left column rows 1-3: the symbol strip. Plain clicks, NO
+                // bindTouch - its preventDefault would kill the vertical
+                // scroll (same lesson as the sym-cat strip).
+                const syms = document.createElement('div');
+                syms.className = 'num-syms';
+                NUM_PAD_SYMBOLS.forEach(value => {
+                    const button = document.createElement('button');
+                    button.className = 'num-sym-key';
+                    button.textContent = value;
+                    button.addEventListener('click', () => this.sendSymbol(value));
+                    syms.append(button);
+                });
+                grid.append(syms);
 
-            // Left column row 4: back to the letters keyboard (green).
-            // specialKey over a raw button: the back key is NOT inside a
-            // scroller, so it joins the bindTouch chain (active-touch +
-            // unified cancel, review P2).
-            const back = this.specialKey('numpad-back', ICONS.arrowLeft,
-                () => this.showLetters(), 'num-back');
-            back.setAttribute('aria-label', t("返回主键盘"));
-            grid.append(back);
+                // Left column row 4: back to the letters keyboard (green).
+                // specialKey over a raw button: the back key is NOT inside a
+                // scroller, so it joins the bindTouch chain (active-touch +
+                // unified cancel, review P2).
+                const back = this.specialKey('numpad-back', ICONS.arrowLeft,
+                    () => this.showLetters(), 'num-back');
+                back.setAttribute('aria-label', t("返回主键盘"));
+                grid.append(back);
+            }
 
             if (this.emojiView) {
                 grid.append(this.renderEmojiArea());
@@ -5345,14 +5349,6 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             });
             const strip = document.createElement('div');
             strip.className = 'emoji-cats';
-            // The leading 123 tab returns to the digit pad - the smiley
-            // key it replaced lives in that view (symbol layer's ABC
-            // grammar).
-            const digitsTab = document.createElement('button');
-            digitsTab.className = 'sym-cat';
-            digitsTab.textContent = '123';
-            digitsTab.addEventListener('click', () => this.toggleEmojiView());
-            strip.append(digitsTab);
             const tabs = [];
             categories.forEach((category, index) => {
                 const tab = document.createElement('button');
@@ -5385,7 +5381,15 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 }
                 tabs.forEach((tab, index) => tab.classList.toggle('active', categories[index].id === current));
             });
-            area.append(pages, strip);
+            // 返回主键盘（原左列绿键）放在分类条最左，不进横向滚动区：
+            // 它是 bindTouch 的键，放进 scroller 会被 preventDefault 杀掉滚动。
+            const back = this.specialKey('numpad-back', ICONS.arrowLeft,
+                () => this.showLetters(), 'num-back');
+            back.setAttribute('aria-label', t("返回主键盘"));
+            const bar = document.createElement('div');
+            bar.className = 'emoji-bar';
+            bar.append(back, strip);
+            area.append(pages, bar);
             return area;
         }
 

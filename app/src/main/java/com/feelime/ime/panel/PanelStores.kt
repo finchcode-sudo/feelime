@@ -148,6 +148,9 @@ class ClipboardStore(private val context: Context) {
     private fun captureUriClip(uri: Uri, declaredMime: String?, fallbackText: String?) {
         val fingerprint = fingerprintOf("img:$uri")
         if (suppress.shouldSuppress(fingerprint)) return
+        // 已作为图片入库的同一来源：每次聚焦都会重抓，直接跳过——否则重复项
+        // 会被当成「不是图片」而误记一条 content:// 文字。
+        if (images.items().any { it.src == fingerprint }) return
         imageWorker.execute {
             val added = images.add(uri, declaredMime, fingerprint)
             mainHandler.post {

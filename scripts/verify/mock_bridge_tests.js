@@ -1988,43 +1988,47 @@ test('nine-pad commits literally; fn column rides the native bridges', {since: '
     assert(!world.$('qwertyLayer').hidden, 'back returns to letters');
 });
 
-test('emoji sub-view commits and remembers; 123 tab returns', {since: '3.27.0'}, () => {
+test('emoji sub-view commits and remembers; back key leaves the pad', {since: '3.27.0'}, () => {
     const world = fresh();
     const key123 = [...world.document.querySelectorAll('.kb-special')].find(
         el => el.textContent === '123',
     );
-    world.touchDown(key123);
-    world.clock.advance(360);
-    world.touchUp(key123);
+    const openPad = () => {
+        world.touchDown(key123);
+        world.clock.advance(360);
+        world.touchUp(key123);
+    };
+    openPad();
     const layer = world.$('numPadLayer');
     const emojiKey = () => layer.querySelector('[data-role="emoji"]');
     world.tap(emojiKey());
     const pages = layer.querySelector('.emoji-pages');
     assert(pages, 'emoji pages rendered');
+    // 表情视图整行铺满：没有左列符号条，也没有 123 数字页签。
+    assert(!layer.querySelector('.num-syms'), 'no symbol strip in the emoji view');
     let tabs = [...layer.querySelectorAll('.emoji-cats .sym-cat')];
-    equal(tabs[0].textContent, '123', 'digits tab leads');
-    equal(tabs.length, 8, '123 + seven categories before the first pick');
+    equal(tabs.length, 7, 'seven categories before the first pick (no 123 tab)');
+    assert(tabs.every(tab => tab.textContent !== '123'), 'no digits tab');
     equal(pages.querySelectorAll('.emoji-page').length, 7,
         'one continuous section per category (vertical scroll, no 24-per-page paging)');
     const first = pages.querySelector('.emoji-key');
     world.tap(first);
     equal(world.native.of('commitText').slice(-1)[0].args[0], first.textContent,
         'emoji commits literally');
-    world.tap(tabs[0]);
-    assert(!layer.querySelector('.emoji-pages'), 'digits return in place');
+    // 返回键在分类条最左：回到字母主键盘。
+    world.tap(layer.querySelector('.num-back'));
+    assert(world.$('numPadLayer').hidden, 'back key leaves the nine-pad');
+    openPad();
     world.tap(emojiKey());
     tabs = [...layer.querySelectorAll('.emoji-cats .sym-cat')];
-    equal(tabs.length, 9, '常用 appears after the first pick');
-    equal(tabs[1].textContent, '常用', '常用 follows the digits tab');
-    equal(tabs[1].classList.contains('active'), true,
-        'the leading category tab matches the page being shown');
-    equal(tabs[2].classList.contains('active'), false, 'later tabs stay dark');
+    equal(tabs.length, 8, '常用 appears after the first pick');
+    equal(tabs[0].textContent, '常用', '常用 leads the categories');
+    equal(tabs[0].classList.contains('active'), true,
+        'the leading category tab matches the section being shown');
+    equal(tabs[1].classList.contains('active'), false, 'later tabs stay dark');
     // Leaving the pad ends the emoji session.
-    world.tap(tabs[0]);
     world.tap(layer.querySelector('.num-back'));
-    world.touchDown(key123);
-    world.clock.advance(360);
-    world.touchUp(key123);
+    openPad();
     assert(!world.$('numPadLayer').querySelector('.emoji-pages'),
         'emoji view reset after leaving the pad');
 });

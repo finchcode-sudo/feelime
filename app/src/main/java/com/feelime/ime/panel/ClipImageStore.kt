@@ -46,7 +46,7 @@ class ClipImageStore(private val context: Context) {
     fun items(): List<ClipImage> = synchronized(lock) { readIndex() }
 
     /** 读 uri 头部嗅探真实图片格式（不信任来源 app 声明的 MIME：很多 app 只
-     *  声明 text/uri-list 或 */*）。不是图片/读不了返回 null。 */
+     *  声明 text/uri-list 或通配类型）。不是图片/读不了返回 null。 */
     private fun sniffMime(uri: Uri): String? = try {
         context.contentResolver.openInputStream(uri)?.use { stream ->
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
