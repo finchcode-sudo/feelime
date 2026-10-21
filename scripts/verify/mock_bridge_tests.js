@@ -2004,6 +2004,8 @@ test('emoji sub-view commits and remembers; 123 tab returns', {since: '3.27.0'},
     let tabs = [...layer.querySelectorAll('.emoji-cats .sym-cat')];
     equal(tabs[0].textContent, '123', 'digits tab leads');
     equal(tabs.length, 8, '123 + seven categories before the first pick');
+    equal(pages.querySelectorAll('.emoji-page').length, 7,
+        'one continuous section per category (vertical scroll, no 24-per-page paging)');
     const first = pages.querySelector('.emoji-key');
     world.tap(first);
     equal(world.native.of('commitText').slice(-1)[0].args[0], first.textContent,

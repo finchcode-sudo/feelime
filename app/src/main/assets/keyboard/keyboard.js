@@ -300,7 +300,7 @@
         });
     }
 
-    const KEYBOARD_VERSION = '3.73.45';
+    const KEYBOARD_VERSION = '3.73.46';
     // #39-12 收口：整屏级互斥视图注册表（单一事实源）。统计浮层、
     // 定制面板两轮同款叠层事故的根因是互关调用散装在各个 toggle 里，
     // 新视图忘了关所有人就叠加。现在：新视图在此登记一次（怎么判开、
@@ -5320,30 +5320,28 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             const categories = (recents.length
                 ? [{ id: 'recent', label: '常用', emojis: recents }, ...EMOJI_CATEGORIES]
                 : EMOJI_CATEGORIES);
+            // 纵向滚动：每个分类一个连续网格段（不再 24 个一页左右翻页），
+            // 分类条点击跳到该段顶，滚动时分类条跟随当前段。
             const pages = document.createElement('div');
             pages.className = 'emoji-pages';
-            const pageCats = [];
-            const firstPage = {};
+            const sections = [];
             categories.forEach(category => {
-                firstPage[category.id] = pageCats.length;
-                for (let i = 0; i < category.emojis.length; i += 24) {
-                    pageCats.push(category.id);
-                    const page = document.createElement('div');
-                    page.className = 'emoji-page';
-                    // Plain clicks - bindTouch's preventDefault would kill
-                    // the page swipe starting on a key.
-                    category.emojis.slice(i, i + 24).forEach(emoji => {
-                        const button = document.createElement('button');
-                        button.className = 'emoji-key';
-                        button.textContent = emoji;
-                        button.addEventListener('click', () => {
-                            this.sendSymbol(emoji);
-                            this.rememberEmoji(emoji);
-                        });
-                        page.append(button);
+                const page = document.createElement('div');
+                page.className = 'emoji-page';
+                // Plain clicks - bindTouch's preventDefault would kill
+                // the scroll starting on a key.
+                category.emojis.forEach(emoji => {
+                    const button = document.createElement('button');
+                    button.className = 'emoji-key';
+                    button.textContent = emoji;
+                    button.addEventListener('click', () => {
+                        this.sendSymbol(emoji);
+                        this.rememberEmoji(emoji);
                     });
-                    pages.append(page);
-                }
+                    page.append(button);
+                });
+                pages.append(page);
+                sections.push({ id: category.id, el: page });
             });
             const strip = document.createElement('div');
             strip.className = 'emoji-cats';
@@ -5361,22 +5359,31 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 tab.className = 'sym-cat' + (index === 0 ? ' active' : '');
                 tab.textContent = t(category.label);
                 tab.addEventListener('click', () => {
-                    const left = firstPage[category.id] * (pages.clientWidth || 0);
+                    const top = sections[index].el.offsetTop || 0;
                     if (typeof pages.scrollTo === 'function') {
-                        pages.scrollTo({ left, behavior: 'smooth' });
+                        pages.scrollTo({ top, behavior: 'smooth' });
                     } else {
-                        pages.scrollLeft = left;
+                        pages.scrollTop = top;
                     }
                 });
                 tabs.push(tab);
                 strip.append(tab);
             });
-            // Swiping the pages keeps the strip in sync (per-page index).
+            // Scrolling keeps the strip in sync: the active tab is the
+            // last section whose top has reached the viewport top (the
+            // final one also wins when scrolled to the very bottom, since
+            // a short last section can never reach the top).
             pages.addEventListener('scroll', () => {
-                const width = pages.clientWidth;
-                if (!width) return;
-                const catId = pageCats[Math.round(pages.scrollLeft / width)] || pageCats[0];
-                tabs.forEach((tab, index) => tab.classList.toggle('active', categories[index].id === catId));
+                const y = (pages.scrollTop || 0) + 2;
+                let current = sections[0].id;
+                sections.forEach(section => {
+                    if ((section.el.offsetTop || 0) <= y) current = section.id;
+                });
+                if ((pages.scrollTop || 0) + (pages.clientHeight || 0)
+                    >= (pages.scrollHeight || Infinity) - 2) {
+                    current = sections[sections.length - 1].id;
+                }
+                tabs.forEach((tab, index) => tab.classList.toggle('active', categories[index].id === current));
             });
             area.append(pages, strip);
             return area;
