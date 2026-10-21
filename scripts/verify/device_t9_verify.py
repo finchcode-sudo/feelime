@@ -371,12 +371,16 @@ def main():
         d.tap(*css2phys(back), wait=0.6)
     record("t9: numpad back returns to t9",
            ev("!document.getElementById('qwertyLayer').hidden") is True)
-    emoji = element_center('[data-role="t9emoji"]')
-    if emoji:
-        d.tap(*css2phys(emoji), wait=0.6)
-        record("t9: emoji opens the nine-pad emoji view",
-               ev("!document.getElementById('numPadLayer').hidden"
-                  " && !!document.querySelector('.emoji-area')") is True)
+    # T9 键面不再有 emoji 键（改为字面 0 键）；emoji 经数字板内切换键进入。
+    sym123 = element_center('[data-role="symbols"]')
+    if sym123:
+        d.tap(*css2phys(sym123), wait=0.6)
+        emoji = element_center('[data-role="emoji"]')
+        if emoji:
+            d.tap(*css2phys(emoji), wait=0.6)
+            record("t9: emoji opens via numpad toggle",
+                   ev("!document.getElementById('numPadLayer').hidden"
+                      " && !!document.querySelector('.emoji-area')") is True)
         if back:
             d.tap(*css2phys(back), wait=0.6)
     clear_at = element_center('[data-role="t9clear"]')

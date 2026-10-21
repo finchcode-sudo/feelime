@@ -2380,7 +2380,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
         }
 
         /** T9 网格的功能列与底行（笔画键面共用同一骨架）：c5 退格/重输/
-         * emoji，底行 123(2/3) + mic 空格(5/3) + 中英(2/3) + 确认。 */
+         * 0，底行 123(2/3) + mic 空格(5/3) + 中英(2/3) + 确认。 */
         t9GridChrome(grid, place) {
             place(this.specialKey('backspace', ICONS.backspace,
                 () => this.backspaceAction(),
@@ -2388,9 +2388,13 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             const clearKey = this.specialKey('t9clear', t("重输"),
                 () => this.clearComposing(), 'kb-special');
             place(clearKey, 2, 5);
-            const emojiKey = this.specialKey('t9emoji', ICONS.smiley,
-                () => { this.emojiView = true; this.showNumpad(); }, 'kb-special');
-            place(emojiKey, 3, 5);
+            // 重输下方：字面 0 键（原 emoji 入口；emoji 仍可经 123 数字板
+            // 的 emoji 切换与工具栏 emoji 工具进入）。直发走 sendSymbol——
+            // 进引擎会成为候选选择器，字面 0 上不了屏（同空格上滑 0）。
+            const zeroKey = this.specialKey('t9zero', '0',
+                () => this.sendSymbol('0'), 'kb-special');
+            zeroKey.setAttribute('aria-label', '0');
+            place(zeroKey, 3, 5);
             const r4 = document.createElement('div');
             r4.className = 't9-r4';
             r4.append(this.specialKey('symbols', '123',

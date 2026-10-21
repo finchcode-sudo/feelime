@@ -4267,7 +4267,8 @@ test('t9 renders the five-column grid and selects via the menu', {since: '3.35.0
     // 分词键不再进 T9——9426 类切分歧义交给引擎音节图与音节候选条。
     assert(world.document.getElementById('t9Strip'), 'side strip present');
     assert(world.document.querySelector('[data-role="t9clear"]'), '重输 key present');
-    assert(world.document.querySelector('[data-role="t9emoji"]'), 'emoji key present');
+    assert(world.document.querySelector('[data-role="t9zero"]'), '0 key present');
+    assert(!world.document.querySelector('[data-role="t9emoji"]'), 'emoji key replaced by 0');
     assert(!world.document.querySelector('[data-role="sep"]'), 'no qwerty separator on t9');
     // mic 挂 data-key=0：上滑字面 0 + 横滑 scrub 的手势选择器依赖
     // （T9 下唯一保留 scrub 的键）。
@@ -8132,8 +8133,10 @@ test('t9 function keys: confirm/重输/1/123/emoji', {since: '3.35.0'}, () => {
     assert(!world.$('numPadLayer').hidden, '123 opens the nine-pad');
     world.tap(world.document.querySelector('[data-role="numpad-back"]'));
     assert(!world.$('qwertyLayer').hidden, 'back returns to the t9 keyface');
-    world.tap(world.document.querySelector('[data-role="t9emoji"]'));
-    assert(!world.$('numPadLayer').hidden, 'emoji opens the nine-pad');
+    // T9 键面不再有 emoji 键（改为 0 键）；emoji 经数字板内的切换键进入。
+    world.tap(world.document.querySelector('[data-role="symbols"]'));
+    world.tap(world.document.querySelector('[data-role="emoji"]'));
+    assert(!world.$('numPadLayer').hidden, 'numpad stays open');
     assert(world.document.querySelector('.emoji-area'), 'emoji view is showing');
 });
 
@@ -8222,8 +8225,8 @@ test('stroke renders the T9 skeleton with stroke keycaps', {since: '3.48.0'}, ()
         ['1', '一'], ['2', '丨'], ['3', '丿'], ['4', '丶'], ['5', '乙'],
         ['6', '＊'], ['7', '@#.'], ['8', '，'], ['9', '分词'],
     ]), '1-5 strokes / 6 wildcard / 7 symbol group / 8 comma / 9 split');
-    // 功能列与底行沿用 T9 骨架：退格/重输/emoji + 123/mic(0)/中英/确认。
-    ['backspace', 't9clear', 't9emoji', 'symbols', 'enter'].forEach(role => {
+    // 功能列与底行沿用 T9 骨架：退格/重输/0 + 123/mic(0)/中英/确认。
+    ['backspace', 't9clear', 't9zero', 'symbols', 'enter'].forEach(role => {
         assert(world.document.querySelector(`.t9-grid [data-role="${role}"]`),
             `chrome key ${role} present`);
     });

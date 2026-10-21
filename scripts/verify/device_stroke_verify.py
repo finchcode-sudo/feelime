@@ -92,7 +92,7 @@ def main():
     record("stroke: chrome keys + mic space present",
            ev("!!document.querySelector('[data-role=\"backspace\"]')"
               " && !!document.querySelector('[data-role=\"t9clear\"]')"
-              " && !!document.querySelector('[data-role=\"t9emoji\"]')"
+              " && !!document.querySelector('[data-role=\"t9zero\"]')"
               " && document.getElementById('spaceKey').dataset.key === '0'") is True)
     cells = ev("[...document.querySelectorAll('#t9Strip .t9-side-cell')]"
                ".map(c => c.textContent)") or []
