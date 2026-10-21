@@ -39,10 +39,10 @@ jobs:
       - name: Download build assets
         run: ./scripts/setup-assets.sh
 
-      - name: Build thin debug APK
+      - name: Build full debug APK
         run: |
           chmod +x gradlew
-          ./gradlew :app:assembleDirectDebug -PfeelimeModels=thin
+          ./gradlew :app:assembleDirectDebug
 
       - uses: actions/upload-artifact@v4
         with:
