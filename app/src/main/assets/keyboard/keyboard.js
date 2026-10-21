@@ -300,7 +300,7 @@
         });
     }
 
-    const KEYBOARD_VERSION = '3.73.46';
+    const KEYBOARD_VERSION = '3.73.47';
     // #39-12 收口：整屏级互斥视图注册表（单一事实源）。统计浮层、
     // 定制面板两轮同款叠层事故的根因是互关调用散装在各个 toggle 里，
     // 新视图忘了关所有人就叠加。现在：新视图在此登记一次（怎么判开、
@@ -9714,6 +9714,37 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                     this.closePanel();
                 };
 
+                if (this.panelTab === 'clipboard' && item.image) {
+                    // 图片条目：缩略图 + ×。点按经 commitContent 交给输入框
+                    // （结果异步回 onClipImagePaste）；编辑卡取材区不接图片。
+                    row.classList.add('panel-image');
+                    const thumb = document.createElement('span');
+                    thumb.className = 'panel-thumb';
+                    const img = document.createElement('img');
+                    img.src = item.thumb;
+                    img.alt = t("图片");
+                    thumb.append(img);
+                    const remove = document.createElement('span');
+                    remove.className = 'panel-remove';
+                    remove.textContent = '×';
+                    remove.setAttribute('aria-label', t("删除"));
+                    remove.addEventListener('click', event => {
+                        event.stopPropagation();
+                        this.call(() => Native.removeClipboard(item.id, this.token));
+                    });
+                    row.append(thumb, remove);
+                    row.addEventListener('click', () => {
+                        if (this.phraseCardOpen()) return;
+                        if (typeof Native.pasteClipImage !== 'function') {
+                            this.showToast(t("当前版本不支持粘贴图片，请更新 APK"));
+                            return;
+                        }
+                        this.call(() => Native.pasteClipImage(item.id, this.token));
+                    });
+                    list.append(row);
+                    return;
+                }
+
                 if (this.panelTab === 'clipboard') {
                     const preview = document.createElement('span');
                     preview.className = 'panel-text';
@@ -10258,10 +10289,42 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
         }
 
         onClipboard(payload) {
-            this.clipboardItems = (payload.items || []).map(item => ({
+            const texts = (payload.items || []).map(item => ({
                 id: String(item.id), text: String(item.text), time: Number(item.time) || 0,
             }));
+            // 图片条目（thumb 是原生生成的 data: 缩略图）与文字按时间合并，
+            // 新的在前；旧原生没有 images 字段则只有文字。
+            const images = (payload.images || []).map(item => ({
+                id: String(item.id), text: '', image: true,
+                thumb: String(item.thumb || ''), time: Number(item.time) || 0,
+            }));
+            // 归并而不是整体 sort：两个列表各自保持原生给出的顺序（文字列表
+            // 的顺序不能被时间戳重排），只在两者之间按时间交错。
+            const merged = [];
+            let ti = 0;
+            let ii = 0;
+            while (ti < texts.length || ii < images.length) {
+                const takeImage = ii < images.length
+                    && (ti >= texts.length || images[ii].time > texts[ti].time);
+                merged.push(takeImage ? images[ii++] : texts[ti++]);
+            }
+            this.clipboardItems = merged;
             if (this.panelOpen && this.panelTab === 'clipboard') this.renderPanel();
+        }
+
+        /** 图片上屏结果（原生异步回传）：成功收面板，失败按原因提示。
+         * 失败时面板保持打开，用户可以改选别的条目。 */
+        onClipImagePaste(ok, reason) {
+            if (ok) {
+                this.closePanel();
+                return;
+            }
+            const messages = {
+                unsupported: "当前输入框不支持粘贴图片",
+                sensitive: "此处不能粘贴图片",
+                missing: "图片已失效",
+            };
+            this.showToast(t(messages[reason] || "粘贴图片失败"));
         }
 
         /** 导入备份后原生把 localStorage 级设置推回来（userdata.md §1.4）。
@@ -11145,6 +11208,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
         commitText: text => console.log('commitText', text),
         getClipboard: () => {},
         removeClipboard: id => console.log('removeClipboard', id),
+        pasteClipImage: id => console.log('pasteClipImage', id),
         clearClipboard: () => {},
         getFavorites: () => {},
         removeFavorite: id => console.log('removeFavorite', id),
@@ -11245,6 +11309,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
         // 工具位（debugState 同类）：自定义行缩放器，mock/预览直调锁数值。
         fitCustomRow: strip => keyboard.fitCustomRow(strip),
         onClipboard: payload => keyboard.onClipboard(payload),
+        onClipImagePaste: (ok, reason) => keyboard.onClipImagePaste(ok, reason),
         onFavorites: payload => keyboard.onFavorites(payload),
         onStoresRestored: stores => keyboard.onStoresRestored(stores),
         onPanelCommit: payload => keyboard.onPanelCommit(payload),

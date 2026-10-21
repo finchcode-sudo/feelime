@@ -2,8 +2,10 @@ package com.feelime.ime.panel
 
 import android.content.ClipboardManager
 import android.content.Context
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -62,6 +64,12 @@ class ClipboardStore(private val context: Context) {
         .getSharedPreferences("feelime_clipboard", Context.MODE_PRIVATE)
     private val idCounter = AtomicLong(System.currentTimeMillis())
 
+    /** 图片历史（与文字分开存；面板按时间合并显示）。 */
+    val images = ClipImageStore(context)
+
+    /** 拷贝图片是文件 IO，不能占主线程。 */
+    private val imageWorker = Executors.newSingleThreadExecutor()
+
     /** Suppression marker lives in prefs (fingerprint only) so it survives
      *  process death alongside the history it protects. */
     private val suppress = ClipSuppressPolicy { marker ->
@@ -105,12 +113,53 @@ class ClipboardStore(private val context: Context) {
         // The flag is also used for version reports copied by Settings.
         // Reading the literal key works on older Android releases too.
         if (clip.description.extras?.getBoolean("android.content.extra.IS_SENSITIVE", false) == true) return
+        // 图片剪贴：uri + image/* MIME。必须先于 coerceToText 判断——图片项的
+        // coerceToText 是 content:// 字符串，会被当成文字记进历史。
+        val imageMime = imageMimeOf(clip)
+        val imageUri = clip.getItemAt(0).uri
+        if (imageMime != null && imageUri != null) {
+            captureImage(imageUri, imageMime)
+            return
+        }
         val text = clip.getItemAt(0).coerceToText(context)?.toString() ?: return
         if (text.isEmpty()) return
         val fingerprint = fingerprintOf(text)
         if (suppress.shouldSuppress(fingerprint)) return
         record(text)
         suppress.onRecorded()
+    }
+
+    private fun imageMimeOf(clip: android.content.ClipData): String? {
+        val description = clip.description
+        for (index in 0 until description.mimeTypeCount) {
+            val mime = description.getMimeType(index)
+            if (mime.startsWith("image/")) return mime
+        }
+        return null
+    }
+
+    /** 主线程只做抑制判断；拷贝在后台，落盘后回主线程解除抑制并通知面板。 */
+    private fun captureImage(uri: Uri, mime: String) {
+        val fingerprint = fingerprintOf("img:$uri")
+        if (suppress.shouldSuppress(fingerprint)) return
+        imageWorker.execute {
+            val added = images.add(uri, mime, fingerprint)
+            if (added) {
+                mainHandler.post {
+                    suppress.onRecorded()
+                    onChanged?.invoke()
+                }
+            }
+        }
+    }
+
+    /** 当前系统剪贴板是图片时的来源指纹（与 captureImage 同口径）；否则 null。 */
+    private fun currentImageFingerprint(): String? {
+        val clip = clipboard(context)?.primaryClip ?: return null
+        if (clip.itemCount == 0) return null
+        if (imageMimeOf(clip) == null) return null
+        val uri = clip.getItemAt(0).uri ?: return null
+        return fingerprintOf("img:$uri")
     }
 
     private var registered = false
@@ -159,7 +208,16 @@ class ClipboardStore(private val context: Context) {
      *  resurrected by a capture that lands between the wipe and the
      *  suppression marker (mode-fallback §5). */
     fun remove(id: String) {
-        mainHandler.post { removeNow(id) }
+        mainHandler.post { if (id.startsWith("f")) removeImageNow(id) else removeNow(id) }
+    }
+
+    private fun removeImageNow(id: String) {
+        val removed = images.items().firstOrNull { it.id == id }
+        images.remove(id)
+        // 删的正是当前系统剪贴板那张：下次聚焦的重新抓取会把它救活，抑制之。
+        if (removed != null && currentImageFingerprint() == removed.src) {
+            suppress.snapshot(removed.src)
+        }
     }
 
     private fun removeNow(id: String) {
@@ -185,10 +243,11 @@ class ClipboardStore(private val context: Context) {
         synchronized(prefs) {
             prefs.edit().putString(KEY, "").apply()
         }
+        images.clear()
         // Suppress whatever the system clipboard still holds so a focus
         // re-capture cannot resurrect the wiped history. Only the fingerprint
         // is stored — sensitive clips never persist their text (§5).
-        suppress.snapshot(currentClipText()?.let { fingerprintOf(it) })
+        suppress.snapshot(currentImageFingerprint() ?: currentClipText()?.let { fingerprintOf(it) })
     }
 
     /** Runs on the main thread; null when there is no usable clip text. */
@@ -198,6 +257,8 @@ class ClipboardStore(private val context: Context) {
         if (clip.description.extras?.getBoolean("android.content.extra.IS_SENSITIVE", false) == true) {
             return null
         }
+        // 图片剪贴的 coerceToText 只是 content:// 串，不是可抑制的文字。
+        if (imageMimeOf(clip) != null && clip.getItemAt(0).uri != null) return null
         return clip.getItemAt(0).coerceToText(context)?.toString()?.takeIf { it.isNotEmpty() }
     }
 

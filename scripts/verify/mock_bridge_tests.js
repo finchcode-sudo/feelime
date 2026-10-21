@@ -2068,6 +2068,31 @@ test('rotation keeps the pinned 常用 variant; mode switch resets it', {since: 
         '，。、；：？！～（）', 'grid follows the new default');
 });
 
+test('clipboard panel shows image thumbnails mixed by time; tap pastes via native', {since: '3.73.47'}, () => {
+    const world = fresh();
+    world.hello({});
+    world.tap(world.$('clipboardButton'));
+    world.context.window.Feelime.onClipboard({
+        items: [{ id: '0000000000a1', time: 100, text: 'hello' }],
+        images: [{ id: 'f0000000000b', time: 200, thumb: 'data:image/jpeg;base64,AAAA' }],
+    });
+    const rows = [...world.document.querySelectorAll('#panelList .panel-item')];
+    equal(rows.length, 2, 'text + image rows');
+    assert(rows[0].classList.contains('panel-image'), 'newer image comes first');
+    const img = rows[0].querySelector('img');
+    assert(img && img.src.startsWith('data:image/'), 'thumbnail rendered from the data uri');
+    equal(rows[1].textContent.includes('hello'), true, 'text row follows');
+    world.tap(rows[0]);
+    const pasted = world.native.of('pasteClipImage');
+    equal(pasted.length, 1, 'tap asks native to paste the image');
+    equal(pasted[0].args[0], 'f0000000000b', 'with the image id');
+    // 失败：面板保持打开并提示；成功：面板收起。
+    world.context.window.Feelime.onClipImagePaste(false, 'unsupported');
+    assert(!world.$('panelLayer').hidden, 'failed paste keeps the panel open');
+    world.context.window.Feelime.onClipImagePaste(true, '');
+    equal(world.$('panelLayer').hidden, true, 'successful paste closes the panel');
+});
+
 // #39-4 定稿（用户验收 2026-09-27 二轮）：面板头不携带任何工具栏图标
 // ——tab 是唯一切换器，右侧只有一颗 ×（panelClose）回主键盘。
 test('panel head carries no toolbar icons; a single X closes (#39-4)', {since: '3.69.24'}, () => {

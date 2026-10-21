@@ -2153,6 +2153,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         // must not be renderable on screen while a sensitive editor is focused.
         val sensitive = isSensitiveEditor()
         val items = if (sensitive) emptyList() else clipboardStore.items()
+        val images = if (sensitive) emptyList() else clipboardStore.images.items()
         val payload = JSONObject().put(
             "items",
             JSONArray().apply {
@@ -2160,8 +2161,47 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
                     put(JSONObject().put("id", item.id).put("time", item.time).put("text", item.text))
                 }
             },
+        ).put(
+            "images",
+            JSONArray().apply {
+                images.forEach { image ->
+                    val thumb = clipboardStore.images.thumbDataUri(image) ?: return@forEach
+                    put(JSONObject().put("id", image.id).put("time", image.time).put("thumb", thumb))
+                }
+            },
         )
         evaluate("window.Feelime && window.Feelime.onClipboard && window.Feelime.onClipboard($payload)")
+    }
+
+    /**
+     * 剪贴板图片上屏（与 Gboard 同机制）：把私有目录里的图片以 FileProvider
+     * uri 经 InputConnectionCompat.commitContent 交给目标输入框，目标必须在
+     * EditorInfo.contentMimeTypes 里声明支持该 MIME。
+     * @return null = 成功；否则是给键盘提示用的原因码。
+     */
+    private fun commitClipImage(id: String): String? {
+        if (isSensitiveEditor()) return "sensitive"
+        val entry = clipboardStore.images.items().firstOrNull { it.id == id } ?: return "missing"
+        val connection = currentInputConnection ?: return "no-editor"
+        val info = currentInputEditorInfo ?: return "no-editor"
+        val accepted = androidx.core.view.inputmethod.EditorInfoCompat.getContentMimeTypes(info)
+        if (accepted.none { android.content.ClipDescription.compareMimeTypes(entry.mime, it) }) {
+            return "unsupported"
+        }
+        val uri = clipboardStore.images.contentUri(entry) ?: return "missing"
+        val content = androidx.core.view.inputmethod.InputContentInfoCompat(
+            uri,
+            android.content.ClipDescription("image", arrayOf(entry.mime)),
+            null,
+        )
+        val ok = androidx.core.view.inputmethod.InputConnectionCompat.commitContent(
+            connection,
+            info,
+            content,
+            androidx.core.view.inputmethod.InputConnectionCompat.INPUT_CONTENT_GRANT_READ_URI_PERMISSION,
+            null,
+        )
+        return if (ok) null else "rejected"
     }
 
     private fun pushFavorites() {
@@ -3653,6 +3693,20 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         @JavascriptInterface
         fun getClipboard(token: String) = guarded(token, limited = false) {
             onMain { pushClipboard() }
+        }
+
+        /** 剪贴板图片上屏。结果异步回键盘：onClipImagePaste(ok, reason)。 */
+        @JavascriptInterface
+        fun pasteClipImage(id: String, token: String) = guarded(token, limited = true) {
+            if (!isPanelId(id)) {
+                rejectedCalls += 1
+                return@guarded
+            }
+            val reason = commitClipImage(id)
+            evaluate(
+                "window.Feelime && window.Feelime.onClipImagePaste && " +
+                    "window.Feelime.onClipImagePaste(${reason == null}, ${JSONObject.quote(reason ?: "")})",
+            )
         }
 
         @JavascriptInterface

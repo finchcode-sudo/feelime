@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- FileProvider 可分享路径：目前只有诊断导出（SettingsBridge.exportDiagnostics）。 -->
+<!-- FileProvider 可分享路径：诊断导出（SettingsBridge.exportDiagnostics）与剪贴板图片（ClipImageStore）。 -->
 <paths>
     <cache-path name="exports" path="exports/" />
+    <!-- 剪贴板图片（ClipImageStore）：经 commitContent 交给目标输入框。 -->
+    <files-path name="clip_images" path="clipboard_images/" />
 </paths>

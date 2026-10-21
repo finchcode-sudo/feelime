@@ -1685,6 +1685,19 @@ body.landscape .panel-head { margin: var(--preedit-band, 18px) 0 4px; }
     overflow: hidden;
     word-break: break-all;
 }
+.panel-item.panel-image { min-height: 64px; }
+.panel-thumb {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+}
+.panel-thumb img {
+    max-width: 100%;
+    max-height: 72px;
+    object-fit: contain;
+    border-radius: 6px;
+}
 .panel-remove {
     flex: none;
     width: 24px;
