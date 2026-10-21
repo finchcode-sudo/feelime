@@ -1681,6 +1681,12 @@ body.landscape .panel-head { margin: var(--preedit-band, 18px) 0 4px; }
     text-align: left;
 }
 .panel-item:active { background: var(--pressed); }
+/* 剪贴板条目：每条一个边框，条与条之间留缝，一眼分清是哪一条。 */
+.panel-item.panel-boxed {
+    border: 1.5px solid var(--muted);
+    margin-bottom: 6px;
+}
+.panel-item.panel-boxed:last-child { margin-bottom: 0; }
 .panel-item.disabled { color: var(--muted); }
 .panel-text {
     flex: 1;

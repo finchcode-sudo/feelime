@@ -300,7 +300,7 @@
         });
     }
 
-    const KEYBOARD_VERSION = '3.73.52';
+    const KEYBOARD_VERSION = '3.73.53';
     // #39-12 收口：整屏级互斥视图注册表（单一事实源）。统计浮层、
     // 定制面板两轮同款叠层事故的根因是互关调用散装在各个 toggle 里，
     // 新视图忘了关所有人就叠加。现在：新视图在此登记一次（怎么判开、
@@ -9714,6 +9714,8 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             items.forEach(item => {
                 const row = document.createElement(this.panelTab === 'favorites' ? 'div' : 'button');
                 row.className = 'panel-item';
+                // 剪贴板每条内容都有自己的边框（常用语行保持原样）。
+                if (this.panelTab === 'clipboard') row.classList.add('panel-boxed');
                 row.dataset.itemId = item.id;
                 const tooLong = [...item.text].length > MAX_COMMIT_CODE_POINTS;
                 if (tooLong) row.classList.add('disabled');
