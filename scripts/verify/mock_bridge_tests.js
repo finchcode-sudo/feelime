@@ -8090,6 +8090,15 @@ test('t9 mic key: literal 0 up, horizontal scrub, tap space', {since: '3.35.0'},
     equal(world.native.of('space').slice(-1).length, 1, 'mic tap sends space');
 });
 
+test('t9 preedit never shows raw digits when no syllable can be cut (mashing JKL)', {since: '3.73.58'}, () => {
+    const world = fresh({ mode: 't9' });
+    world.engineState({ phase: 'READY', mode: 't9', revision: 1, composing: '5555555',
+        rawInput: '5555555', candidates: [], hasNextPage: false });
+    const line = world.$('preeditLine').textContent;
+    assert(!/[0-9]/.test(line), 'preedit line has no digits: ' + line);
+    equal(line, 'jjjjjjj', 'unresolved 5s show as the key group first letter');
+});
+
 test('t9 syllable strip: freq order, confirmed boundary, reading echo', {since: '3.35.0'}, () => {
     const world = fresh({ mode: 't9' });
     // 64426 首字未确认：左列只出首字读法、按词典词频全局降序（64 的 ni

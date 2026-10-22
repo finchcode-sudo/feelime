@@ -302,7 +302,7 @@
         });
     }
 
-    const KEYBOARD_VERSION = '3.73.57';
+    const KEYBOARD_VERSION = '3.73.58';
     // #39-12 收口：整屏级互斥视图注册表（单一事实源）。统计浮层、
     // 定制面板两轮同款叠层事故的根因是互关调用散装在各个 toggle 里，
     // 新视图忘了关所有人就叠加。现在：新视图在此登记一次（怎么判开、
@@ -3252,12 +3252,21 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                             best = s;
                         }
                     });
-                    if (!best) { out.push(part.slice(i)); break; }
+                    // 切不出音节的剩余数字（如连按 JKL 的 5555555）不把数字露给
+                    // 用户：按各键字母组的首字母显示（5→j），读起来仍是拼音。
+                    if (!best) { out.push(this.t9GuessLetters(part.slice(i))); break; }
                     out.push(best);
                     i += best.length;
                 }
             });
             return out.join("'");
+        }
+
+        /** 未能切成音节的剩余数字→各键字母组首字母（555 → jjj）；非 2-9 的
+         * 字符（已选汉字、字母）原样。只用于读音行显示，不改引擎输入。 */
+        t9GuessLetters(text) {
+            return [...text].map(ch => (/[2-9]/.test(ch)
+                ? (LAYOUTS.t9.alts[ch] || ch).charAt(0) : ch)).join('');
         }
 
         /** 左列双态：空闲=常用字符（中文标点，sendSymbol 直上屏）；组合中=
