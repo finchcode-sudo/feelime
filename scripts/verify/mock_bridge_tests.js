@@ -6367,9 +6367,22 @@ test('P3b panel rows use native clicks (no touch handlers)', () => {
     equal(row.dataset.bound, undefined, 'row not bound by bindTouch');
 });
 
+test('a long clipboard item (past the old 2000 cap) still pastes in full', {since: '3.73.55'}, () => {
+    const world = fresh();
+    const long = '行'.repeat(5000);
+    world.clipboard([{ id: 'long', time: 1, text: long }]);
+    world.tap(world.$('clipboardButton'));
+    const row = world.document.querySelectorAll('.panel-item')[0];
+    assert(!row.className.includes('disabled'), 'a 5000-char row is not disabled');
+    world.tap(row);
+    const pasted = world.native.of('pasteText');
+    equal(pasted.length, 1, 'paste goes to the bridge');
+    equal(pasted[0].args[0].length, 5000, 'the whole text is pasted, not a truncation');
+});
+
 test('over-long clipboard item renders disabled and never commits', () => {
     const world = fresh();
-    const huge = 'x'.repeat(2001);
+    const huge = 'x'.repeat(20001);
     world.clipboard([{ id: 'big', time: 1, text: huge }]);
     world.tap(world.$('clipboardButton'));
     const row = world.document.querySelectorAll('.panel-item')[0];

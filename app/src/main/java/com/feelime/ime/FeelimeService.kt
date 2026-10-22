@@ -3620,9 +3620,12 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         /** Shared payload validation for the two literal-commit bridges:
          * non-empty, within [MAX_COMMIT_CODE_POINTS], no NUL and no
          * unpaired surrogates. */
-        private fun isValidCommitPayload(text: String): Boolean =
+        private fun isValidCommitPayload(
+            text: String,
+            maxCodePoints: Int = MAX_COMMIT_CODE_POINTS,
+        ): Boolean =
             text.isNotEmpty() &&
-                text.codePointCount(0, text.length) <= MAX_COMMIT_CODE_POINTS &&
+                text.codePointCount(0, text.length) <= maxCodePoints &&
                 runCatching {
                     var index = 0
                     while (index < text.length) {
@@ -3657,7 +3660,9 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
          * stats. Validation identical to [commitText]. */
         @JavascriptInterface
         fun pasteText(text: String, token: String) = guarded(token, limited = false) {
-            if (!isValidCommitPayload(text)) {
+            // 粘贴是用户明确点的一整条剪贴内容，上限比按键直发的 2000 宽得多
+            // （剪贴板历史本身有 56KB 总预算）；其余校验（NUL/孤立代理）不变。
+            if (!isValidCommitPayload(text, MAX_PASTE_CODE_POINTS)) {
                 rejectedCalls += 1
                 return@guarded
             }
@@ -4389,6 +4394,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         const val MAX_JSON_CHARS = 4096
         const val MAX_CANDIDATE_ID_CHARS = 96
         const val MAX_COMMIT_CODE_POINTS = 2000
+        const val MAX_PASTE_CODE_POINTS = 20_000
         const val MAX_CURSOR_DELTA = 256
         const val MAX_CURSOR_CONTEXT_CHARS = 2048
         const val MAX_PENDING_CURSOR_DELTA = 16_384L

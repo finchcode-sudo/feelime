@@ -300,7 +300,7 @@
         });
     }
 
-    const KEYBOARD_VERSION = '3.73.54';
+    const KEYBOARD_VERSION = '3.73.55';
     // #39-12 收口：整屏级互斥视图注册表（单一事实源）。统计浮层、
     // 定制面板两轮同款叠层事故的根因是互关调用散装在各个 toggle 里，
     // 新视图忘了关所有人就叠加。现在：新视图在此登记一次（怎么判开、
@@ -442,7 +442,9 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
     // Over-long clipboard items cannot pass the native commitText limit, so
     // they render disabled in the panel (stored in full, paste blocked).
     const MAX_COMMIT_CODE_POINTS = 2000;
-    // Cursor scrub: one caret step per 12px of drag at the default
+    // 剪贴板条目整条粘贴的上限（原生 pasteText 同口径）。旧原生的 pasteText
+    // 仍是 2000——没有 pasteClipImage 桥方法的就是旧原生，退回 2000。
+    const MAX_PASTE_CODE_POINTS = 20000;    // Cursor scrub: one caret step per 12px of drag at the default
     // 3x speed (SCRUB_UNIT_BASE_PX / scrubSpeed), counted after the fixed
     // recognition-threshold crossing. Exposes 1x..5x in the quick
     // settings panel.
@@ -9717,7 +9719,9 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 // 剪贴板每条内容都有自己的边框（常用语行保持原样）。
                 if (this.panelTab === 'clipboard') row.classList.add('panel-boxed');
                 row.dataset.itemId = item.id;
-                const tooLong = [...item.text].length > MAX_COMMIT_CODE_POINTS;
+                const pasteLimit = typeof Native.pasteClipImage === 'function'
+                    ? MAX_PASTE_CODE_POINTS : MAX_COMMIT_CODE_POINTS;
+                const tooLong = [...item.text].length > pasteLimit;
                 if (tooLong) row.classList.add('disabled');
 
                 const commit = () => {
