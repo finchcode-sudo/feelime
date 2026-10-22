@@ -2012,7 +2012,7 @@ test('emoji sub-view commits and remembers; back key leaves the pad', {since: '3
     equal(pages.querySelectorAll('.emoji-page').length, 8,
         'one continuous section per category (vertical scroll, no 24-per-page paging)');
     equal(pages.querySelectorAll('.emoji-heading').length, 8, 'every section carries a heading');
-    assert(tabs.some(tab => tab.textContent === '旗帜'), 'flags category exists');
+    assert(tabs.some(tab => tab.getAttribute('aria-label') === '旗帜'), 'flags category exists (icon tab, text in aria-label)');
     const flagSection = [...pages.querySelectorAll('.emoji-section')].pop();
     assert(flagSection.querySelectorAll('.emoji-key').length > 200, 'flags section has the country flags');
     assert(flagSection.querySelector('.emoji-key').textContent === '🏁', 'generic flags lead');
@@ -2027,7 +2027,8 @@ test('emoji sub-view commits and remembers; back key leaves the pad', {since: '3
     world.tap(emojiKey());
     tabs = [...layer.querySelectorAll('.emoji-cats .sym-cat')];
     equal(tabs.length, 9, '常用 appears after the first pick');
-    equal(tabs[0].textContent, '常用', '常用 leads the categories');
+    equal(tabs[0].getAttribute('aria-label'), '最近使用', 'recent leads the categories');
+    equal(tabs[0].textContent, '🕘', 'category tabs are emoji icons');
     equal(tabs[0].classList.contains('active'), true,
         'the leading category tab matches the section being shown');
     equal(tabs[1].classList.contains('active'), false, 'later tabs stay dark');

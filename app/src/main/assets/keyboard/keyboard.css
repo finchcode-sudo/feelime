@@ -1067,7 +1067,8 @@ body.landscape .edit-grid { gap: 4px 5px; }
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-columns: 0.92fr 1fr 1fr 1fr 0.92fr;
+    /* 两侧功能列收窄（0.92→0.7），中间 3×3 字母键相应变宽。 */
+    grid-template-columns: 0.7fr 1fr 1fr 1fr 0.7fr;
     grid-template-rows: repeat(4, var(--kb-row-h, 44px));
     gap: 5px;
 }
@@ -1448,6 +1449,8 @@ body.landscape .ink-rail .kb-key {
 /* 底部条压矮：返回键与分类页签只取行高的 0.7，把空间还给表情。 */
 .emoji-bar .num-back,
 .emoji-bar .sym-cat { height: calc(var(--kb-row-h, 44px) * 0.7); }
+/* 分类页签是表情图标：放大到能看清，各页签等宽居中。 */
+.emoji-cats .sym-cat { font-size: 20px; min-width: 44px; display: flex; align-items: center; justify-content: center; }
 body.landscape .num-grid { gap: 3px; }
 
 /* Long-press affordance (design §1.2): ONLY keys whose long-press opens

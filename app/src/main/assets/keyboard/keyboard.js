@@ -302,7 +302,7 @@
         });
     }
 
-    const KEYBOARD_VERSION = '3.73.56';
+    const KEYBOARD_VERSION = '3.73.57';
     // #39-12 收口：整屏级互斥视图注册表（单一事实源）。统计浮层、
     // 定制面板两轮同款叠层事故的根因是互关调用散装在各个 toggle 里，
     // 新视图忘了关所有人就叠加。现在：新视图在此登记一次（怎么判开、
@@ -957,6 +957,12 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
     // setTransientKeyboardHeight 走原生内存 override，不写 pref；退出
     // 表情/收起重唤即还原到用户保存的高度。上限由原生钳制。
     const EMOJI_HEIGHT_BOOST = 1.3;
+    // 表情分类条用图标（各分类的代表表情）代替文字；文字仍在 aria-label 与
+    // 小标题里。
+    const EMOJI_CATEGORY_ICONS = {
+        recent: '🕘', smiley: '😀', hand: '👋', animal: '🐶', food: '🍔',
+        activity: '⚽', object: '💡', symbol: '❤️', flag: '🚩',
+    };
     // 手写控制行键高（CSS px）：固定值，不参与 --kb-row-h 预算（键盘
     // 高度调节的弹性全部给书写面板）。
     const INK_CONTROL_ROW_H = 46;
@@ -5386,7 +5392,8 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             categories.forEach((category, index) => {
                 const tab = document.createElement('button');
                 tab.className = 'sym-cat' + (index === 0 ? ' active' : '');
-                tab.textContent = t(category.label);
+                tab.textContent = EMOJI_CATEGORY_ICONS[category.id] || t(category.label);
+                tab.setAttribute('aria-label', t(category.id === 'recent' ? "最近使用" : category.label));
                 tab.addEventListener('click', () => {
                     const top = sections[index].el.offsetTop || 0;
                     if (typeof pages.scrollTo === 'function') {
