@@ -1413,6 +1413,12 @@ body.landscape .ink-rail .kb-key {
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
 }
+.emoji-heading {
+    padding: 6px 4px 3px;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.2;
+}
 .emoji-page {
     display: grid;
     grid-template-columns: repeat(8, 1fr);

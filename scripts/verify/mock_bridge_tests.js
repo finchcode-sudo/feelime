@@ -2007,10 +2007,15 @@ test('emoji sub-view commits and remembers; back key leaves the pad', {since: '3
     // 表情视图整行铺满：没有左列符号条，也没有 123 数字页签。
     assert(!layer.querySelector('.num-syms'), 'no symbol strip in the emoji view');
     let tabs = [...layer.querySelectorAll('.emoji-cats .sym-cat')];
-    equal(tabs.length, 7, 'seven categories before the first pick (no 123 tab)');
+    equal(tabs.length, 8, 'eight categories (incl. 旗帜) before the first pick (no 123 tab)');
     assert(tabs.every(tab => tab.textContent !== '123'), 'no digits tab');
-    equal(pages.querySelectorAll('.emoji-page').length, 7,
+    equal(pages.querySelectorAll('.emoji-page').length, 8,
         'one continuous section per category (vertical scroll, no 24-per-page paging)');
+    equal(pages.querySelectorAll('.emoji-heading').length, 8, 'every section carries a heading');
+    assert(tabs.some(tab => tab.textContent === '旗帜'), 'flags category exists');
+    const flagSection = [...pages.querySelectorAll('.emoji-section')].pop();
+    assert(flagSection.querySelectorAll('.emoji-key').length > 200, 'flags section has the country flags');
+    assert(flagSection.querySelector('.emoji-key').textContent === '🏁', 'generic flags lead');
     const first = pages.querySelector('.emoji-key');
     world.tap(first);
     equal(world.native.of('commitText').slice(-1)[0].args[0], first.textContent,
@@ -2021,7 +2026,7 @@ test('emoji sub-view commits and remembers; back key leaves the pad', {since: '3
     openPad();
     world.tap(emojiKey());
     tabs = [...layer.querySelectorAll('.emoji-cats .sym-cat')];
-    equal(tabs.length, 8, '常用 appears after the first pick');
+    equal(tabs.length, 9, '常用 appears after the first pick');
     equal(tabs[0].textContent, '常用', '常用 leads the categories');
     equal(tabs[0].classList.contains('active'), true,
         'the leading category tab matches the section being shown');

@@ -78,6 +78,8 @@
         "食物": "Food",
         "活动": "Activity",
         "物品": "Objects",
+        "旗帜": "Flags",
+        "最近使用": "Recent",
         "出现空的 [] 记号": "Empty [] key token",
         "「{0}」无法解析": "Cannot parse “{0}”",
         "「{0}」缺少键名": "“{0}” is missing a key name",
@@ -300,7 +302,7 @@
         });
     }
 
-    const KEYBOARD_VERSION = '3.73.55';
+    const KEYBOARD_VERSION = '3.73.56';
     // #39-12 收口：整屏级互斥视图注册表（单一事实源）。统计浮层、
     // 定制面板两轮同款叠层事故的根因是互关调用散装在各个 toggle 里，
     // 新视图忘了关所有人就叠加。现在：新视图在此登记一次（怎么判开、
@@ -771,6 +773,27 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             '💘 💝 💟 ☮️ ✝️ ☪️ 🕉️ ☸️ ✡️ 🔯 🕎 ☯️ ☦️ 🛐 ⛎ ♈ ' +
             '♉ ♊ ♋ ♌ ♍ ♎ ♏ ♐ ♑ ♒ ♓ 🆔 ⚛️ ✅ ❌ ❓ ❗ ' +
             '💯 🔞 🚭 ♻️ ⚜️ 🔱 📛 🔰 ⭕ 🉑 🈶 🈚 🈸 🈺 🈷️ 🔥').split(' ') },
+        // 旗帜：通用旗 + 国家/地区旗（由两位地区码生成区域指示符对，系统字体
+        // 渲染成旗面）。常用的放前面，其余按字母序。
+        { id: 'flag', label: '旗帜', emojis: (() => {
+            const flagOf = code => String.fromCodePoint(
+                ...[...code].map(letter => 0x1F1E6 + letter.charCodeAt(0) - 65));
+            const popular = ('CN HK MO TW US JP KR GB FR DE RU IT ES CA AU IN SG TH VN MY ID PH ' +
+                'BR MX AR TR SA AE EG ZA NZ NL CH SE NO DK FI PL UA').split(' ');
+            const all = ('AC AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH ' +
+                'BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ CA CC CD CF CG CH CI CK CL CM CN CO CP ' +
+                'CR CU CV CW CX CY CZ DE DG DJ DK DM DO DZ EA EC EE EG EH ER ES ET EU FI FJ FK FM ' +
+                'FO FR GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ' +
+                'IC ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA ' +
+                'LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT ' +
+                'MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM ' +
+                'PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR ' +
+                'SS ST SV SX SY SZ TA TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG UM UN ' +
+                'US UY UZ VA VC VE VG VI VN VU WF WS XK YE YT ZA ZM ZW').split(' ');
+            const rest = all.filter(code => !popular.includes(code));
+            return ['🏁', '🚩', '🎌', '🏴', '🏳️', '🏳️‍🌈', '🏳️‍⚧️', '🏴‍☠️']
+                .concat(popular.concat(rest).map(flagOf));
+        })() },
     ];
     const SYMBOL_CATEGORIES = [
         { id: 'common', label: '常用', rows: null }, // filled per keyboard mode
@@ -5332,6 +5355,13 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             pages.className = 'emoji-pages';
             const sections = [];
             categories.forEach(category => {
+                // 每个分类 = 小标题 + 网格段：最近使用与各分类之间有明确的分界，
+                // 不再一路连着排。
+                const section = document.createElement('div');
+                section.className = 'emoji-section';
+                const heading = document.createElement('div');
+                heading.className = 'emoji-heading';
+                heading.textContent = t(category.id === 'recent' ? "最近使用" : category.label);
                 const page = document.createElement('div');
                 page.className = 'emoji-page';
                 // Plain clicks - bindTouch's preventDefault would kill
@@ -5346,8 +5376,9 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                     });
                     page.append(button);
                 });
-                pages.append(page);
-                sections.push({ id: category.id, el: page });
+                section.append(heading, page);
+                pages.append(section);
+                sections.push({ id: category.id, el: section });
             });
             const strip = document.createElement('div');
             strip.className = 'emoji-cats';
