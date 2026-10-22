@@ -2133,6 +2133,38 @@ test('clipboard panel offers the photo-permission hint only when native says it 
     assert(!world.document.querySelector('.panel-hint'), 'hint stays dismissed for this session');
 });
 
+test('long-pressing a clipboard row offers 编辑/收藏; 收藏 adds to 常用语, 编辑 opens the card prefilled', {since: '3.73.54'}, () => {
+    const world = fresh();
+    world.hello({});
+    world.tap(world.$('clipboardButton'));
+    world.context.window.Feelime.onClipboard({
+        items: [{ id: '0000000000a1', time: 100, text: '你好 world' }],
+        images: [], note: '', shotPermission: true,
+    });
+    const rows = () => [...world.document.querySelectorAll('#panelList .panel-item')];
+    const longPress = el => {
+        world.touchDown(el);
+        world.clock.advance(400);
+        world.touchUp(el);
+    };
+    longPress(rows()[0]);
+    equal(world.native.of('pasteText').length, 0, 'long press does not paste the row');
+    const menu = world.document.getElementById('itemMenu');
+    assert(menu.classList.contains('open'), 'long press opens the item menu');
+    equal([...menu.querySelectorAll('button')].map(b => b.textContent).join(','), '编辑,收藏',
+        'menu offers edit and favorite');
+    world.tap([...menu.querySelectorAll('button')][1]);
+    const adds = world.native.of('favoritesAdd');
+    equal(adds.length, 1, 'favorite goes to the phrases bridge');
+    equal(adds[0].args[0], '你好 world', 'with the clip text');
+    longPress(rows()[0]);
+    world.tap([...world.document.getElementById('itemMenu').querySelectorAll('button')][0]);
+    equal(world.document.getElementById('phraseCardInput').value, '你好 world',
+        'edit prefills the clip text in the card');
+    assert(!world.$('phraseCard').hidden, 'edit card is open');
+    // 普通点按仍然是粘贴。
+});
+
 // #39-4 定稿（用户验收 2026-09-27 二轮）：面板头不携带任何工具栏图标
 // ——tab 是唯一切换器，右侧只有一颗 ×（panelClose）回主键盘。
 test('panel head carries no toolbar icons; a single X closes (#39-4)', {since: '3.69.24'}, () => {

@@ -300,7 +300,7 @@
         });
     }
 
-    const KEYBOARD_VERSION = '3.73.53';
+    const KEYBOARD_VERSION = '3.73.54';
     // #39-12 收口：整屏级互斥视图注册表（单一事实源）。统计浮层、
     // 定制面板两轮同款叠层事故的根因是互关调用散装在各个 toggle 里，
     // 新视图忘了关所有人就叠加。现在：新视图在此登记一次（怎么判开、
@@ -9793,7 +9793,20 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                     // Native clicks only: bindTouch's preventDefault would kill
                     // panel scrolling AND bubble a second row click on remove taps
                     // .
-                    row.addEventListener('click', commit);
+                    // 长按弹「编辑 / 收藏」菜单；长按后随之而来的那次 click 要吞掉，
+                    // 否则松手就把这条粘贴出去了。
+                    let longPressed = false;
+                    row.addEventListener('touchstart', () => { longPressed = false; }, { passive: true });
+                    row.addEventListener('click', () => {
+                        if (longPressed) { longPressed = false; return; }
+                        commit();
+                    });
+                    if (!tooLong) {
+                        this.bindItemLongPress(row, () => {
+                            longPressed = true;
+                            this.openClipMenu(item, row);
+                        });
+                    }
                     list.append(row);
                     return;
                 }
@@ -10142,6 +10155,48 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             }
             this.panelEditItem = null;
             this.closePanelEditor();
+        }
+
+        /** 剪贴板条目的长按菜单：编辑 / 收藏。收藏 = 直接放进常用语；
+         * 编辑 = 先在编辑卡里改文字，保存后进常用语。样式与常用语行菜单
+         * 同一套（#itemMenu）。 */
+        openClipMenu(item, anchor) {
+            const menu = document.getElementById('itemMenu');
+            this.closeItemMenu();
+            this.itemMenuOpen = item.id;
+            const build = (label, action) => {
+                const button = document.createElement('button');
+                button.textContent = label;
+                button.addEventListener('click', () => {
+                    this.closeItemMenu();
+                    action();
+                });
+                menu.append(button);
+            };
+            build(t("编辑"), () => this.openClipEditor(item));
+            build(t("收藏"), () => {
+                // 输入码留空 = 自动（引擎侧取前 3 字/拼音首字母），候选位 1。
+                this.call(() => Native.favoritesAdd(item.text, '', 1, this.token));
+                this.showToast(t("已收藏到常用语"));
+            });
+            menu.classList.add('open');
+            const rect = anchor.getBoundingClientRect();
+            menu.style.left = Math.max(4, Math.min(innerWidth - menu.offsetWidth - 4,
+                rect.right - menu.offsetWidth)) + 'px';
+            menu.style.top = Math.max(2, rect.top - menu.offsetHeight - 6) + 'px';
+            this.syncOverlay();
+        }
+
+        /** 用常用语编辑卡改剪贴板文字：新建模式（不带 id）预填文字，保存即
+         * 走 favoritesAdd 进常用语。 */
+        openClipEditor(item) {
+            this.openPanelEditor(null);
+            document.getElementById('phraseCardTitle').textContent = t("编辑后收藏到常用语");
+            const input = document.getElementById('phraseCardInput');
+            input.value = item.text;
+            if (typeof input.setSelectionRange === 'function') {
+                input.setSelectionRange(input.value.length, input.value.length);
+            }
         }
 
         /** Pin/edit/delete ride a long-press menu (⋯ tap opens

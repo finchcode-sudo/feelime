@@ -1685,6 +1685,10 @@ body.landscape .panel-head { margin: var(--preedit-band, 18px) 0 4px; }
 .panel-item.panel-boxed {
     border: 1.5px solid var(--muted);
     margin-bottom: 6px;
+    /* 长按弹菜单：别让系统把文字选中/弹出复制气泡。 */
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
 }
 .panel-item.panel-boxed:last-child { margin-bottom: 0; }
 .panel-item.disabled { color: var(--muted); }
