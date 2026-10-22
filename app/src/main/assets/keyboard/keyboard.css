@@ -1456,8 +1456,8 @@ body.landscape .ink-rail .kb-key {
 .emoji-bar .num-back,
 .emoji-bar .sym-cat { height: calc(var(--kb-row-h, 44px) * 0.7); }
 /* 分类页签是表情图标：放大到能看清，各页签等宽居中。 */
-/* 分类条重做：九个图标等分整条宽度、一屏全看见（不再横滑藏页签）；
- * 非当前的去色变淡，当前的恢复彩色 + 胶囊底 + 底部小指示条。 */
+/* 分类条：九个自绘线条图标等分整条宽度、一屏全看见（不再横滑藏页签）；
+ * 当前的强调色 + 胶囊底 + 底部小指示条。 */
 .emoji-cats { gap: 2px; }
 .emoji-cats .sym-cat {
     flex: 1 1 0;
@@ -1469,12 +1469,11 @@ body.landscape .ink-rail .kb-key {
     justify-content: center;
     background: transparent;
     border-radius: 999px;
-    filter: grayscale(1);
-    opacity: .6;
+    /* 线条图标随文字色着色：未选中用次要色，选中用强调色。 */
+    color: var(--muted);
 }
 .emoji-cats .sym-cat.active {
-    filter: none;
-    opacity: 1;
+    color: var(--accent-strong);
     background: var(--key);
 }
 .emoji-cats .sym-cat.active::after {

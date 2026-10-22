@@ -2028,7 +2028,8 @@ test('emoji sub-view commits and remembers; back key leaves the pad', {since: '3
     tabs = [...layer.querySelectorAll('.emoji-cats .sym-cat')];
     equal(tabs.length, 9, '常用 appears after the first pick');
     equal(tabs[0].getAttribute('aria-label'), '最近使用', 'recent leads the categories');
-    equal(tabs[0].textContent, '🕘', 'category tabs are emoji icons');
+    assert(tabs[0].querySelector('svg'), 'category tabs are drawn icons');
+    equal(tabs[0].textContent, '', 'no system emoji glyphs in the category bar');
     equal(tabs[0].classList.contains('active'), true,
         'the leading category tab matches the section being shown');
     equal(tabs[1].classList.contains('active'), false, 'later tabs stay dark');

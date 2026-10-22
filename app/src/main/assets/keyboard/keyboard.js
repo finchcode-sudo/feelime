@@ -302,7 +302,7 @@
         });
     }
 
-    const KEYBOARD_VERSION = '3.73.59';
+    const KEYBOARD_VERSION = '3.73.60';
     // #39-12 收口：整屏级互斥视图注册表（单一事实源）。统计浮层、
     // 定制面板两轮同款叠层事故的根因是互关调用散装在各个 toggle 里，
     // 新视图忘了关所有人就叠加。现在：新视图在此登记一次（怎么判开、
@@ -957,11 +957,43 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
     // setTransientKeyboardHeight 走原生内存 override，不写 pref；退出
     // 表情/收起重唤即还原到用户保存的高度。上限由原生钳制。
     const EMOJI_HEIGHT_BOOST = 1.3;
-    // 表情分类条用图标（各分类的代表表情）代替文字；文字仍在 aria-label 与
-    // 小标题里。
-    const EMOJI_CATEGORY_ICONS = {
-        recent: '🕘', smiley: '😀', hand: '👋', animal: '🐶', food: '🍔',
-        activity: '⚽', object: '💡', symbol: '❤️', flag: '🚩',
+    // 表情分类条用键盘自己画的线条图标（不是系统彩色表情）；文字仍在
+    // aria-label 与小标题里。24×24 网格、描边 1.8、圆角端点，随主题着色。
+    const FILL = { fill: 'currentColor', stroke: 'none' };
+    const EMOJI_TAB_ICONS = {
+        recent: [['circle', { cx: 12, cy: 12, r: 9 }], ['path', { d: 'M12 7v5l3 2' }]],
+        smiley: [['circle', { cx: 12, cy: 12, r: 9 }],
+            ['circle', { cx: 9, cy: 10, r: 1, ...FILL }], ['circle', { cx: 15, cy: 10, r: 1, ...FILL }],
+            ['path', { d: 'M8 14.5c1 1.6 2.3 2.4 4 2.4s3-.8 4-2.4' }]],
+        hand: [['path', { d: 'M8 13V6.5a1.5 1.5 0 0 1 3 0V11M11 11V4.5a1.5 1.5 0 0 1 3 0V11M14 11V6.5a1.5 1.5 0 0 1 3 0V15c0 3.6-2.4 6-5.6 6-2.4 0-4-1.1-5.1-3L4.7 14.6a1.4 1.4 0 0 1 2.3-1.5L8 14.5' }]],
+        animal: [['circle', { cx: 6.5, cy: 11, r: 1.8 }], ['circle', { cx: 10, cy: 6.8, r: 1.8 }],
+            ['circle', { cx: 14, cy: 6.8, r: 1.8 }], ['circle', { cx: 17.5, cy: 11, r: 1.8 }],
+            ['path', { d: 'M12 12.5c-2.8 0-5 2.5-5 4.6 0 1.4 1.1 2.1 2.6 2.1 1 0 1.5-.5 2.4-.5s1.4.5 2.4.5c1.5 0 2.6-.7 2.6-2.1 0-2.1-2.2-4.6-5-4.6z' }]],
+        food: [['path', { d: 'M7 3v6.5a2 2 0 0 0 4 0V3M9 3v18M17 21V3c-2.2 1.4-3 4-3 7v3h3' }]],
+        activity: [['circle', { cx: 12, cy: 12, r: 9 }], ['path', { d: 'M12 3v18M3 12h18M5.7 5.7c2.8 3 2.8 9.6 0 12.6M18.3 5.7c-2.8 3-2.8 9.6 0 12.6' }]],
+        object: [['path', { d: 'M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3zM9.5 18.5h5M10.5 21h3' }]],
+        symbol: [['path', { d: 'M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2z' }]],
+        flag: [['path', { d: 'M6 21V4M6 5h11l-2 4 2 4H6' }]],
+    };
+    const makeEmojiTabIcon = id => {
+        const parts = EMOJI_TAB_ICONS[id];
+        if (!parts) return null;
+        const svg = document.createElementNS(SVG_NS, 'svg');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.setAttribute('width', '22');
+        svg.setAttribute('height', '22');
+        svg.setAttribute('fill', 'none');
+        svg.setAttribute('stroke', 'currentColor');
+        svg.setAttribute('stroke-width', '1.8');
+        svg.setAttribute('stroke-linecap', 'round');
+        svg.setAttribute('stroke-linejoin', 'round');
+        svg.setAttribute('aria-hidden', 'true');
+        parts.forEach(([tag, attrs]) => {
+            const node = document.createElementNS(SVG_NS, tag);
+            Object.keys(attrs).forEach(name => node.setAttribute(name, String(attrs[name])));
+            svg.append(node);
+        });
+        return svg;
     };
     // 手写控制行键高（CSS px）：固定值，不参与 --kb-row-h 预算（键盘
     // 高度调节的弹性全部给书写面板）。
@@ -5401,7 +5433,9 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             categories.forEach((category, index) => {
                 const tab = document.createElement('button');
                 tab.className = 'sym-cat' + (index === 0 ? ' active' : '');
-                tab.textContent = EMOJI_CATEGORY_ICONS[category.id] || t(category.label);
+                const tabIcon = makeEmojiTabIcon(category.id);
+                if (tabIcon) tab.append(tabIcon);
+                else tab.textContent = t(category.label);
                 tab.setAttribute('aria-label', t(category.id === 'recent' ? "最近使用" : category.label));
                 tab.addEventListener('click', () => {
                     const top = sections[index].el.offsetTop || 0;
