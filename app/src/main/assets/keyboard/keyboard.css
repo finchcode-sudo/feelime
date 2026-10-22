@@ -1445,12 +1445,49 @@ body.landscape .ink-rail .kb-key {
 .emoji-cats { display: flex; gap: 4px; overflow-x: auto; touch-action: pan-x; scrollbar-width: none; flex: 1; min-width: 0; }
 /* 底部条：返回键（固定）+ 分类条（横向滚动）。 */
 .emoji-bar { display: flex; gap: 4px; min-width: 0; }
-.emoji-bar .num-back { flex: none; width: calc(var(--kb-row-h, 44px) * 1.3); }
+.emoji-bar { align-items: center; gap: 6px; }
+/* 返回键：缩成一颗强调色胶囊，不再是一大块实心方键。 */
+.emoji-bar .num-back {
+    flex: none;
+    width: calc(var(--kb-row-h, 44px) * 1.1);
+    border-radius: 999px;
+}
 /* 底部条压矮：返回键与分类页签只取行高的 0.7，把空间还给表情。 */
 .emoji-bar .num-back,
 .emoji-bar .sym-cat { height: calc(var(--kb-row-h, 44px) * 0.7); }
 /* 分类页签是表情图标：放大到能看清，各页签等宽居中。 */
-.emoji-cats .sym-cat { font-size: 20px; min-width: 44px; display: flex; align-items: center; justify-content: center; }
+/* 分类条重做：九个图标等分整条宽度、一屏全看见（不再横滑藏页签）；
+ * 非当前的去色变淡，当前的恢复彩色 + 胶囊底 + 底部小指示条。 */
+.emoji-cats { gap: 2px; }
+.emoji-cats .sym-cat {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0;
+    font-size: 21px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border-radius: 999px;
+    filter: grayscale(1);
+    opacity: .6;
+}
+.emoji-cats .sym-cat.active {
+    filter: none;
+    opacity: 1;
+    background: var(--key);
+}
+.emoji-cats .sym-cat.active::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: 3px;
+    width: 14px;
+    height: 3px;
+    margin-left: -7px;
+    border-radius: 2px;
+    background: var(--accent-strong);
+}
 body.landscape .num-grid { gap: 3px; }
 
 /* Long-press affordance (design §1.2): ONLY keys whose long-press opens
