@@ -8126,17 +8126,28 @@ test('t9 preedit never shows raw digits when no syllable can be cut (mashing JKL
     equal(line, 'jjjjjjj', 'unresolved 5s show as the key group first letter');
 });
 
-test('t9 syllable strip: freq order, confirmed boundary, reading echo', {since: '3.35.0'}, () => {
+test('t9 syllable strip lists 94264 longest-first then alphabetical', {since: '3.73.62'}, () => {
     const world = fresh({ mode: 't9' });
-    // 64426 首字未确认：左列只出首字读法、按词典词频全局降序（64 的 ni
-    // 压过 6 的 o/mi），第二字的 ga/ha/gan/gao 绝不提前出现——引擎回显的
+    world.engineState({ phase: 'READY', mode: 't9', revision: 1, composing: '94264',
+        rawInput: '94264', candidates: [], hasNextPage: false });
+    const labels = [...world.document.querySelectorAll('#t9Strip .t9-side-cell')]
+        .map(c => c.textContent);
+    equal(labels.join(' '),
+        'xiang zhang xian xiao zhan zhao xia zha xi yi zh zi w x y z',
+        'order is syllable length descending, then alphabetical');
+});
+
+test('t9 syllable strip: length-then-alphabet order, confirmed boundary, reading echo', {since: '3.35.0'}, () => {
+    const world = fresh({ mode: 't9' });
+    // 64426 首字未确认：左列只出首字读法，按音节长度降序、同长度字母序；
+    // 第二字的 ga/ha/gan/gao 绝不提前出现——引擎回显的
     // 段空格（'64 426'）是切分猜测，不能当确认边界（用户定稿）。
     world.engineState({ phase: 'READY', mode: 't9', revision: 1, composing: '64 426',
         rawInput: '64 426', candidates: [], hasNextPage: false });
     const cells = () => [...world.document.querySelectorAll('#t9Strip .t9-side-cell')]
         .map(c => c.textContent);
     let labels = cells();
-    equal(labels[0], 'ni', '64 ranks ni first by dictionary weight');
+    equal(labels.slice(0, 2).join(','), 'mi,ni', '64: same-length readings sort alphabetically');
     assert(labels.includes('mi') && labels.includes('o'), 'other readings of 6/64 follow');
     assert(!labels.includes('hao') && !labels.includes('gan'),
         'second-char readings banned before the first char is confirmed');
@@ -8238,7 +8249,7 @@ test('t9 syllable strip: freq order, confirmed boundary, reading echo', {since: 
     world4.engineState({ phase: 'READY', mode: 't9', revision: 2, composing: '53',
         rawInput: '53', candidates: [], hasNextPage: false });
     equal([...world4.document.querySelectorAll('#t9Strip .t9-side-cell')]
-        .map(c => c.textContent)[0], 'le', 'scientific-notation weights: 53 lists le first');
+        .map(c => c.textContent)[0], 'ke', '53: same length → alphabetical, ke before le');
 });
 
 test('t9 mic scrub cancels the pending voice hold timer', {since: '3.35.0'}, () => {

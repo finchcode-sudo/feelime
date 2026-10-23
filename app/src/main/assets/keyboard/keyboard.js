@@ -3519,6 +3519,15 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
          * 校验字母一致性（段中已确认的字母必须与音节同位相同或该位是
          * 数字）。候选跨前缀长度按词典词频全局降序（输入 64 → ni 在
          * mi/o 之前），声母前缀层缀尾。 */
+        /** 音节条按长度降序、同长度按字母序排列；只影响显示顺序。 */
+        t9SyllableOrder(seg) {
+            const { full, pre } = this.t9SegmentSyllables(seg);
+            return full.map(label => ({ label, full: true }))
+                .concat(pre.map(label => ({ label, full: false })))
+                .sort((a, b) => (b.label.length - a.label.length)
+                    || (a.label < b.label ? -1 : (a.label > b.label ? 1 : 0)));
+        }
+
         t9SegmentSyllables(seg) {
             const digits = t9ToDigits(seg);
             const consistent = (form, n) => {
@@ -3629,18 +3638,18 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 T9_SIDE_CHARS.forEach(char => strip.append(this.t9SideCell(char)));
                 return;
             }
-            const { full, pre } = this.t9SegmentSyllables(seg);
-            full.forEach(syllable => {
-                const cell = this.t9SideCell(syllable,
-                    () => this.t9PickSyllable(syllable, seg));
-                cell.classList.add('t9-syl-full');
-                strip.append(cell);
-            });
-            pre.forEach(initial => {
-                // 前缀格只做提示（「还没打完」），点按无动作。
-                const cell = this.t9SideCell(initial, () => {});
-                cell.classList.add('t9-syl-pre');
-                strip.append(cell);
+            this.t9SyllableOrder(seg).forEach(item => {
+                if (item.full) {
+                    const cell = this.t9SideCell(item.label,
+                        () => this.t9PickSyllable(item.label, seg));
+                    cell.classList.add('t9-syl-full');
+                    strip.append(cell);
+                } else {
+                    // 前缀格只做提示（「还没打完」），点按无动作。
+                    const cell = this.t9SideCell(item.label, () => {});
+                    cell.classList.add('t9-syl-pre');
+                    strip.append(cell);
+                }
             });
         }
 
@@ -9496,9 +9505,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                         this.t9PickSyllable(syllable, seg));
                     column.append(button);
                 };
-                const { full, pre } = this.t9SegmentSyllables(seg);
-                full.forEach(s => makeSyllable(s, false));
-                pre.forEach(p => makeSyllable(p, true));
+                this.t9SyllableOrder(seg).forEach(item => makeSyllable(item.label, !item.full));
                 return;
             }
             const raw = this.mode === 'pinyin'
