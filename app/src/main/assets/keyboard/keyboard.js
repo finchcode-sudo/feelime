@@ -5821,7 +5821,8 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             back.setAttribute('aria-label', t("返回主键盘"));
             const bar = document.createElement('div');
             bar.className = 'emoji-bar';
-            bar.append(back, strip);
+            const del = this.specialKey('backspace', ICONS.backspace, () => this.backspaceAction(), 'emoji-del kb-special', 'repeat');
+            bar.append(back, strip, del);
             area.append(pages, bar);
             return area;
         }
