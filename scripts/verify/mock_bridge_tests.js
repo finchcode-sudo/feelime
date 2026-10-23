@@ -2007,11 +2007,12 @@ test('emoji sub-view commits and remembers; back key leaves the pad', {since: '3
     // 表情视图整行铺满：没有左列符号条，也没有 123 数字页签。
     assert(!layer.querySelector('.num-syms'), 'no symbol strip in the emoji view');
     let tabs = [...layer.querySelectorAll('.emoji-cats .sym-cat')];
-    equal(tabs.length, 8, 'eight categories (incl. 旗帜) before the first pick (no 123 tab)');
+    equal(tabs.length, 9, 'nine categories (incl. 交通地点/旗帜) before the first pick (no 123 tab)');
     assert(tabs.every(tab => tab.textContent !== '123'), 'no digits tab');
-    equal(pages.querySelectorAll('.emoji-page').length, 8,
+    equal(pages.querySelectorAll('.emoji-page').length, 9,
         'one continuous section per category (vertical scroll, no 24-per-page paging)');
-    equal(pages.querySelectorAll('.emoji-heading').length, 8, 'every section carries a heading');
+    equal(pages.querySelectorAll('.emoji-heading').length, 9, 'every section carries a heading');
+    assert(pages.querySelectorAll('.emoji-key').length > 1500, 'the full Unicode set is offered, not a curated few');
     assert(tabs.some(tab => tab.getAttribute('aria-label') === '旗帜'), 'flags category exists (icon tab, text in aria-label)');
     const flagSection = [...pages.querySelectorAll('.emoji-section')].pop();
     assert(flagSection.querySelectorAll('.emoji-key').length > 200, 'flags section has the country flags');
@@ -2026,7 +2027,7 @@ test('emoji sub-view commits and remembers; back key leaves the pad', {since: '3
     openPad();
     world.tap(emojiKey());
     tabs = [...layer.querySelectorAll('.emoji-cats .sym-cat')];
-    equal(tabs.length, 9, '常用 appears after the first pick');
+    equal(tabs.length, 10, '常用 appears after the first pick');
     equal(tabs[0].getAttribute('aria-label'), '最近使用', 'recent leads the categories');
     assert(tabs[0].querySelector('svg'), 'category tabs are drawn icons');
     equal(tabs[0].textContent, '', 'no system emoji glyphs in the category bar');
@@ -2138,6 +2139,31 @@ test('clipboard panel offers the photo-permission hint only when native says it 
     equal(world.native.of('openPhotoSettings').length, 1, 'tap opens the system settings');
     push(false);
     assert(!world.document.querySelector('.panel-hint'), 'hint stays dismissed for this session');
+});
+
+test('long-pressing an emoji shows its official name and does not type it', {since: '3.73.61'}, () => {
+    const world = fresh();
+    const key123 = [...world.document.querySelectorAll('.kb-special')].find(
+        el => el.textContent === '123',
+    );
+    world.touchDown(key123);
+    world.clock.advance(360);
+    world.touchUp(key123);
+    const layer = world.$('numPadLayer');
+    world.tap(layer.querySelector('[data-role="emoji"]'));
+    const key = layer.querySelector('.emoji-key');
+    const typedBefore = world.native.of('commitText').length;
+    world.touchDown(key);
+    world.clock.advance(420);
+    const tip = world.document.getElementById('emojiTip');
+    assert(tip, 'a tip appears after the hold');
+    assert(tip.textContent.includes(key.textContent), 'the tip shows the emoji');
+    assert(tip.textContent.length > key.textContent.length, 'and its Chinese name');
+    world.touchUp(key);
+    equal(world.native.of('commitText').length, typedBefore, 'the long press does not type the emoji');
+    // 普通点按照常输入。
+    world.tap(key);
+    assert(world.native.of('commitText').length > typedBefore, 'a plain tap still types it');
 });
 
 test('long-pressing a clipboard row offers 编辑/收藏; 收藏 adds to 常用语, 编辑 opens the card prefilled', {since: '3.73.54'}, () => {
