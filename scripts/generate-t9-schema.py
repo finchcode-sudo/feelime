@@ -108,6 +108,16 @@ def coverage_patches(syllables: list, rules: list) -> list:
     return lines
 
 
+# 声母简拼（对齐上游 luna_pinyin 的 abbrev 规则）：每个音节除全拼外还多一种
+# 「只写声母」的拼写（ke→k，zhong→zh/z）。放在保护级联之前，级联与 xlit
+# 会把它们一并派生成数字码——数字 5 因而匹配所有 j/k/l 声母的音节，连按
+# JKL 也能按「每个字的声母」查词组出候选（百度/Xime 式简拼）。
+ABBREV_RULES = [
+    "abbrev/^([a-z]).+$/$1/",
+    "abbrev/^([zcs]h).+$/$1/",
+]
+
+
 def hybrid_speller(patches: list) -> str:
     head = (
         "speller:\n"
@@ -117,9 +127,10 @@ def hybrid_speller(patches: list) -> str:
         "  delimiter: \" '\"\n"
         "  algebra:\n"
     )
+    abbrev_lines = "".join(f'  - "{rule}"\n' for rule in ABBREV_RULES)
     rule_lines = "".join(f'  - "derive/{p}/{r}/"\n' for p, r in protect_rules())
     patch_lines = "".join(f'  - "{p}"\n' for p in patches)
-    return (head + rule_lines + patch_lines
+    return (head + abbrev_lines + rule_lines + patch_lines
             + f'  - "{XLIT}"\n'
             + f'  - "{RESTORE}"\n')
 
