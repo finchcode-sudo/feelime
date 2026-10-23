@@ -486,11 +486,15 @@ class TextInputCoordinator(
 
         val raw = composingRaw.replace(" ", "")
         val rawMode = isPinyinFamily(mode)
+        // 九宫格的原始输入是数字码、笔画的是笔画码——不是文字。切模式/收键盘
+        // 时若照拼音那样把 raw 当文字打出来，用户连按 5 再切英文就会在输入框
+        // 里得到一串「555555」。这两种模式丢弃未确认的码，只重置引擎。
+        val codeMode = mode == InputMode.T9 || mode == InputMode.STROKE
         composingActive = false
         composingRaw = ""
         val ack = dispatchLive(EngineCommand.Reset)
         if (rawMode) {
-            if (raw.isNotEmpty()) editor.commitText(raw)
+            if (raw.isNotEmpty() && !codeMode) editor.commitText(raw)
         } else {
             editor.finishComposing()
         }

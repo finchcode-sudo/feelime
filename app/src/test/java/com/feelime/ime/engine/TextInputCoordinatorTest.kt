@@ -1313,6 +1313,22 @@ class TextInputCoordinatorTest {
     }
 
     @Test
+    fun acceptCurrentCompositionDropsT9DigitCodesInsteadOfTypingThem() {
+        val c = coordinator()
+        c.onEditorStarted(sensitive = false)
+        c.selectMode(InputMode.T9)
+        c.key('5'.code)
+        c.key('5'.code)
+        c.key('5'.code)
+
+        assertEquals(DispatchAck.Accepted, c.acceptCurrentComposition())
+        // 数字码不是文字：不能以 commitText 打进输入框（用户实录：连按 5 再
+        // 切英文，输入框里多出一串 555），但引擎仍要被重置。
+        assertFalse(editor.operations.any { it.startsWith("commitText:5") })
+        assertEquals(1, fake.requests.count { it.command == EngineCommand.Reset })
+    }
+
+    @Test
     fun acceptCurrentCompositionFinishesFrenchSpanExactlyOnce() {
         val c = coordinator()
         c.onEditorStarted(sensitive = false)
