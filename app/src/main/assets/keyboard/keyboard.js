@@ -3586,7 +3586,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                     if (!/[a-z2-9]/.test(part.charAt(i))) {
                         let j = i + 1;
                         while (j < part.length && !/[a-z2-9]/.test(part.charAt(j))) j++;
-                        out.push(part.slice(i, j));
+                        const chunk = part.slice(i, j).replace(/'/g, ''); if (chunk) out.push(chunk);
                         i = j;
                         continue;
                     }
