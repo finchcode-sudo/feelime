@@ -40,7 +40,17 @@ object CustomPhraseStore {
     // capitalize + DAILY/COLLIDING 字面量小写化）。txt 是生成缓存不随
     // APK 重装刷新——升 DERIVE_VERSION 让 load 触发重派生 + 引擎重载。
     // 6：新增内置词表资产 builtin-words.tsv（人名等专有词，叠加层）。
-    private const val DERIVE_VERSION = 6
+    // 7：词库本体（导入/自造/内置）额外落 T9 数字码行——九宫格的按键序列是
+    // 数字，字母码在 T9 下命不中。
+    private const val DERIVE_VERSION = 7
+
+    private const val T9_DIGITS = "22233344455566677778889999"
+
+    /** 字母码 → T9 数字码（abc→2 … wxyz→9）。含非 a-z 字符/空串返回 null。 */
+    internal fun t9Digits(code: String): String? {
+        if (code.isEmpty() || !code.all { it in 'a'..'z' }) return null
+        return code.map { T9_DIGITS[it - 'a'] }.joinToString("")
+    }
 
     /** 内置词表资产（「词<TAB>码」，解析与词库导入同一套约束）。它是 APK 随
      *  包的叠加层，不进 custom-phrases.json——用户的导入/自造词不受影响，
@@ -373,6 +383,10 @@ object CustomPhraseStore {
         // 每 种读音一条全拼码，存的主码只是 UI 展示行）；imported 的码来自
         // .dict.yaml 自带注音，不再二次生成。
         val userTexts = user.map { it.first }.toSet()
+        // T9 的按键序列是数字（custom_phrase 按字面匹配）：词库本体的字母码
+        // 再落一份数字码，九宫格下也能命中。items（符号词）不展开——T9 下不
+        // 让「对勾」等符号词凭数字乱入候选。
+        val bodyWords = (imported + user + bundledWords(context)).toSet()
         for ((text, code) in deriving) {
             val variants = LinkedHashSet<String>()
             variants.add(code)
@@ -382,6 +396,7 @@ object CustomPhraseStore {
             for (variant in variants.toList()) {
                 variants.addAll(doublePinyinSpellings(variant, codes))
             }
+            if ((text to code) in bodyWords) t9Digits(code)?.let { variants.add(it) }
             for (variant in variants) lines.add("$text\t$variant\t1")
         }
         // #29-3 英文词直出：码=字母序列字面（stabledb 按键字面匹配，
