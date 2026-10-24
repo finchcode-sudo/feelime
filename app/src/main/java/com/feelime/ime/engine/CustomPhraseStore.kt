@@ -39,7 +39,19 @@ object CustomPhraseStore {
     // 5（2026-09-27）：内置英文源词面统一小写（english-words.txt 去
     // capitalize + DAILY/COLLIDING 字面量小写化）。txt 是生成缓存不随
     // APK 重装刷新——升 DERIVE_VERSION 让 load 触发重派生 + 引擎重载。
-    private const val DERIVE_VERSION = 5
+    // 6：新增内置词表资产 builtin-words.tsv（人名等专有词，叠加层）。
+    private const val DERIVE_VERSION = 6
+
+    /** 内置词表资产（「词<TAB>码」，解析与词库导入同一套约束）。它是 APK 随
+     *  包的叠加层，不进 custom-phrases.json——用户的导入/自造词不受影响，
+     *  也不会被「清空导入词」带走；资产缺失/损坏时静默返回空表。 */
+    private fun bundledWords(context: Context): List<Pair<String, String>> = try {
+        context.assets.open("builtin-words.tsv").bufferedReader(Charsets.UTF_8).use {
+            DictYamlImporter.parse(it).items
+        }
+    } catch (_: Exception) {
+        emptyList()
+    }
 
     /** 预设符号词（issue #17 原始需求：箭头/对错/心星手势/动物/天象/
      * 性别符号；用户可在设置的三级页增删改）。 */
@@ -345,7 +357,8 @@ object CustomPhraseStore {
         englishEnabled: Boolean,
     ) {
         val txt = txtFile(context)
-        val deriving = (if (enabled) items else emptyList()) + imported + user
+        val deriving = ((if (enabled) items else emptyList()) + imported + user +
+            bundledWords(context)).distinct()
         val codes = codeTable(context)
         val english = if (englishEnabled) {
             englishLines(codes, frequencyWords = frequencyEnglishWords(context))
