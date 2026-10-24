@@ -2716,7 +2716,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                     one.className = 'kb-key t9-key';
                     one.dataset.key = '1';
                     one.innerHTML = '<span class="t9-sup">1</span><span class="t9-group">@#.</span>';
-                    one.addEventListener('click', () => this.t9SymbolBar());
+                    one.addEventListener('click', () => (this.composing ? this.call(() => Native.key("'", this.token)) : this.t9SymbolBar()));
                     this.bindTouch(one);
                     place(one, coords[digit][0], coords[digit][1]);
                 } else {
@@ -3617,7 +3617,13 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
         /** 左列双态：空闲=常用字符（中文标点，sendSymbol 直上屏）；组合中=
             拼音音节候选（完整音节可点重写组合，声母前缀置灰提示）。
             内容签名不变不重建——滚动位置在竖拖时不被引擎事件打断。 */
+        syncT9OneKey() {
+            const face = document.querySelector(".t9-key[data-key=\"1\"] .t9-group");
+            if (face) face.textContent = this.composing ? "分词" : "@#.";
+        }
+
         renderT9Side() {
+            this.syncT9OneKey();
             const strip = document.getElementById('t9Strip');
             if (!strip || (this.mode !== 't9' && this.mode !== 'stroke')) return;
             if (this.mode === 'stroke') {
