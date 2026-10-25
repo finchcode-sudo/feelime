@@ -2574,7 +2574,6 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 document.getElementById('modeMenu').classList.contains('open') ||
                 document.getElementById('itemMenu').classList.contains('open') ||
                 document.getElementById('phraseCard').classList.contains('open') ||
-                document.getElementById('translateCard').classList.contains('open') ||
                 // The height card lives in the band too - without
                 // this line every real touch on it fell through to the host
                 // app (±/strip/cancel all dead under a finger; synthetic
@@ -7146,7 +7145,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
          * #8): the rows shrink by 4/8/11 against the old 14px base. */
         layoutChrome() {
             const bandExtra = this.preeditFont === 2 ? 11 : this.preeditFont === 1 ? 8 : 4;
-            return (this.landscape ? 78 : 86) + bandExtra;
+            return (this.landscape ? 78 : 86) + bandExtra + (this.translateDockPx || 0);
         }
 
         /** Read the native view's total height back as content height. The
@@ -10570,14 +10569,14 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 menu.append(b);
             });
             menu.hidden = false;
-            this.placeTranslateCard();
+            this.syncTranslateDock();
         }
 
         closeTranslateMenu() {
             const menu = document.getElementById('translateLangMenu');
             if (menu) menu.hidden = true;
             if (this.tr) this.tr.menu = null;
-            if (this.translateCardOpen()) this.placeTranslateCard();
+            if (this.translateCardOpen()) this.syncTranslateDock();
         }
 
         swapTranslateLangs() {
@@ -10623,18 +10622,36 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             document.body.classList.add('editing');
             card.hidden = false;
             card.classList.add('open');
-            this.placeTranslateCard();
-            this.syncOverlay();
+            this.syncTranslateDock();
             input.focus();
             this.setPanelInput(true);
         }
 
-        placeTranslateCard() {
+        /** 停靠态：卡嵌在键盘最上方、占自己的高度；键盘整体抬高同样的高度
+         *  （transient 高度桥，同表情视图），layoutChrome 同步计入，键位行高
+         *  不变。旧原生没有该桥则只重算行高（键位略挤，功能照常）。 */
+        syncTranslateDock() {
             const card = document.getElementById('translateCard');
-            const kb = document.getElementById('softKeyboard').getBoundingClientRect();
-            card.style.top = '0px';
-            const h = card.offsetHeight;
-            card.style.top = Math.max(8, kb.top - h - 6) + 'px';
+            if (!card || !this.translateCardOpen()) return;
+            const px = Math.round(card.offsetHeight || 0) + 6;
+            if (px === this.translateDockPx) return;
+            if (this.translateBase == null) this.translateBase = this.currentContentHeight();
+            this.translateDockPx = px;
+            if (typeof Native.setTransientKeyboardHeight === 'function') {
+                const value = this.translateBase + px;
+                this.call(() => Native.setTransientKeyboardHeight(value, this.token));
+            }
+            this.applyHeight();
+        }
+
+        releaseTranslateDock() {
+            const hadBoost = this.translateBase != null;
+            this.translateDockPx = 0;
+            this.translateBase = null;
+            if (hadBoost && typeof Native.setTransientKeyboardHeight === 'function') {
+                this.call(() => Native.setTransientKeyboardHeight(0, this.token));
+            }
+            this.applyHeight();
         }
 
         /** 只收卡本身（释放重定向、清状态），不动键层——clearEditorStrip 等
@@ -10654,7 +10671,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             document.getElementById('translateInput').value = '';
             document.body.classList.remove('editing');
             if (this.settingsInputFocus) this.setPanelInput(false);
-            this.syncOverlay();
+            this.releaseTranslateDock();
         }
 
         closeTranslateCard() {
@@ -11585,9 +11602,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             if (document.getElementById('phraseCard').classList.contains('open')) {
                 this.placePhraseCard();
             }
-            if (document.getElementById('translateCard').classList.contains('open')) {
-                this.placeTranslateCard();
-            }
+            if (this.translateCardOpen()) this.syncTranslateDock();
             if (payload.theme === 'dark' || payload.theme === 'light') {
                 systemTheme = payload.theme;
                 systemThemeKnown = true;

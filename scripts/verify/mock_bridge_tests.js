@@ -3466,6 +3466,9 @@ test('offline translate card: debounced translateText, stale replies dropped, in
     equal(world.$('translateFrom').textContent, '中文', 'default source is Chinese');
     equal(world.$('translateTo').textContent, '英语', 'default target is English');
     assert(world.native.of('panelInput').slice(-1)[0].args[0] === true, 'panel input redirect armed');
+    // 停靠态：键盘整体抬高卡的高度（不再浮在宿主输入框上），关卡归零还原。
+    const boosts = () => world.native.of('setTransientKeyboardHeight');
+    assert(boosts().length >= 1 && boosts().slice(-1)[0].args[0] > 0, 'keyboard raised while the dock is open');
     // 面板重定向写入输入框（走 onPanelCommit）→ 防抖后发一次 translateText。
     const input = world.$('translateInput');
     world.document.activeElement = input;
@@ -3489,6 +3492,7 @@ test('offline translate card: debounced translateText, stale replies dropped, in
     // 插入：先收卡放掉重定向，再延时提交到宿主。
     world.tap(world.$('translateInsert'));
     assert(!card.classList.contains('open'), 'card closed on insert');
+    equal(boosts().slice(-1)[0].args[0], 0, 'height restored when the dock closes');
     assert(world.native.of('panelInput').slice(-1)[0].args[0] === false, 'redirect released before commit');
     world.clock.advance(100);
     const pasted = (world.native.of('pasteText').concat(world.native.of('commitText'))).slice(-1)[0];
