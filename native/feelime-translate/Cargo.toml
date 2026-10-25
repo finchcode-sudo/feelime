@@ -1,0 +1,20 @@
+[package]
+name = "feelime-translate"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-only"
+description = "Feelime built-in offline zh<->en translation (slimt/bergamot models) behind a tiny JNI surface"
+
+[lib]
+name = "feelime_translate"
+crate-type = ["cdylib"]
+
+[dependencies]
+jni = { version = "0.21", default-features = false }
+# slimt-sys 构建时会拉 vendor/slimt 子模块（cargo 对 git 依赖自动递归检出）。
+slimt-sys = { git = "https://github.com/DavidVentura/slimt-sys.git" }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+strip = "debuginfo"

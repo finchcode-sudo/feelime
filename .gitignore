@@ -58,3 +58,9 @@ app/src/modelAssets
 feelime-keyboard*.zip
 !test-fixtures/*.zip
 .claude/
+
+# 内置翻译：引擎 .so 与模型由 CI 现场构建/下载，不进仓库
+app/src/main/jniLibs/arm64-v8a/libfeelime_translate.so
+app/src/main/assets/translate-models/
+native/feelime-translate/target/
+native/feelime-translate/Cargo.lock

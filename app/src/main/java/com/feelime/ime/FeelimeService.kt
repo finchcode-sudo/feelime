@@ -250,10 +250,6 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
     // it - so editor writes must be redirected back into the panel input.
     @Volatile private var panelInputActive = false
 
-    /** 离线翻译客户端（懒建；绑定 Offline Translator 的 AIDL 服务）。 */
-    private var translatorRef: TranslatorClient? = null
-    private fun translator(): TranslatorClient =
-        translatorRef ?: TranslatorClient(applicationContext).also { translatorRef = it }
     private var panelComposeSupported = false
     private var panelInputRequested = false
     private var panelRouteGeneration = 0L
@@ -1417,8 +1413,6 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         // 收起取证：service 销毁落一行——导出里「onDestroy 之后又见
         // process start」= 进程被系统回收/重启（环形缓冲清空的元凶）。
         Diagnostics.log("svc", "destroy")
-        translatorRef?.shutdown()
-        translatorRef = null
         acceptAsrResults = false
         // #41 二轮：击键是内存累加、搭便车落盘，服务销毁时刷一次。
         InputStats.flush(applicationContext)
@@ -3516,8 +3510,8 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
             }
         }
 
-        /** 离线翻译（键盘翻译面板）。文本交给 Offline Translator 的 AIDL
-         *  服务翻译，结果经 onTranslateResult 回推；[reqId] 由 JS 递增，
+        /** 离线翻译（键盘翻译面板）。文本交给内置引擎（OfflineTranslator，
+         *  中英互译）翻译，结果经 onTranslateResult 回推；[reqId] 由 JS 递增，
          *  用来丢弃过期回包。[from] 空串 = 自动检测。文本只在本机进程间
          *  往返，不落盘不联网。 */
         @JavascriptInterface
@@ -3529,13 +3523,12 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
                     rejectedCalls += 1
                     return@guarded
                 }
-                translator().translate(text, from, to) { result ->
+                OfflineTranslator.translate(applicationContext, text, from, to) { result ->
                     val payload = JSONObject().put("id", reqId)
                     when (result) {
-                        is TranslatorClient.Result.Ok -> payload.put("ok", true).put("text", result.text)
-                        is TranslatorClient.Result.Fail -> payload.put("ok", false)
+                        is OfflineTranslator.Result.Ok -> payload.put("ok", true).put("text", result.text)
+                        is OfflineTranslator.Result.Fail -> payload.put("ok", false)
                             .put("kind", result.kind)
-                            .put("language", result.language ?: "")
                             .put("message", result.message ?: "")
                     }
                     evaluate("window.Feelime && window.Feelime.onTranslateResult && window.Feelime.onTranslateResult($payload)")

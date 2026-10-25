@@ -350,9 +350,6 @@ android {
 
     buildFeatures {
         buildConfig = true
-        // 离线翻译：绑定「Offline Translator」(dev.davidv.translator) 的 AIDL 服务，
-        // 接口文件在 src/main/aidl（与对方同包名同定义，对方明示双许可供第三方绑定）。
-        aidl = true
     }
 
     signingConfigs {

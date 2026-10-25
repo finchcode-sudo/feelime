@@ -68,11 +68,6 @@
         "译文显示在这里（点一下插入）": "Translation appears here (tap to insert)",
         "翻译中…": "Translating…",
         "当前版本不支持离线翻译，请更新键盘": "This version does not support offline translation; please update the keyboard",
-        "未安装离线翻译 App：请先安装 Offline Translator（dev.davidv.translator）并下载语言包": "Offline Translator (dev.davidv.translator) is not installed; install it and download language packs",
-        "无法连接翻译 App，请先打开它一次": "Cannot reach the translator app; open it once first",
-        "无法识别源语言，请手动选择": "Could not detect the source language; pick it manually",
-        "翻译超时，请重试": "Translation timed out; try again",
-        "语言包未下载：请在翻译 App 里下载「{0}」": "Language pack missing: download “{0}” in the translator app",
         "翻译失败，请确认翻译 App 已下载对应语言包": "Translation failed; check the language pack is downloaded in the translator app",
         "繁体中文": "Traditional Chinese",
         "英语": "English",
@@ -354,14 +349,8 @@
     // 专业键面维持 26 键）。
     const MERGEABLE_14 = new Set(['pinyin', 'double-pinyin', 'direct']);
 
-    /** 离线翻译卡的语言表 [Offline Translator 的语言代码, 显示名]。代码与对方
-     *  目录一致（zh_hant = 繁体中文）；对方没下语言包时回「语言包未下载」。 */
-    const TRANSLATE_LANGS = [
-        ['zh', '中文'], ['zh_hant', '繁体中文'], ['en', '英语'], ['ja', '日语'],
-        ['ko', '韩语'], ['fr', '法语'], ['de', '德语'], ['es', '西班牙语'],
-        ['ru', '俄语'], ['it', '意大利语'], ['pt', '葡萄牙语'], ['ar', '阿拉伯语'],
-        ['th', '泰语'], ['vi', '越南语'],
-    ];
+    /** 离线翻译卡的语言表 [语言代码, 显示名]。内置引擎只支持中英互译。 */
+    const TRANSLATE_LANGS = [['zh', '中文'], ['en', '英语']];
 
     /** [panel:x] DSL 的面板白名单（#50）：runPanelStep 是唯一分发点，
      *  长按空格的虚拟定制键同样经此打开面板。#65 增补：emoji=数字键盘
@@ -10498,7 +10487,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
         /** The floating phrase card is mid-edit (add or update) - panel
          * items then act as its content picker instead of committing. */
         /* ===== 离线翻译卡（Gboard 式）=====
-         * 引擎在 Offline Translator（dev.davidv.translator）里，经原生桥
+         * 引擎内置（native/feelime-translate，中英互译），经原生桥
          * translateText 调用、onTranslateResult 回推。卡是局部浮层（同常用语
          * 编辑卡，不进 EXCLUSIVE_VIEWS）：键区保持可见用来打字，输入框走面板
          * 重定向通道；输入停 0.45s 自动翻译，reqId 丢弃过期回包。 */
@@ -10722,16 +10711,12 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 return;
             }
             const messages = {
-                not_installed: t("未安装离线翻译 App：请先安装 Offline Translator（dev.davidv.translator）并下载语言包"),
-                not_ready: t("无法连接翻译 App，请先打开它一次"),
-                no_detect: t("无法识别源语言，请手动选择"),
-                timeout: t("翻译超时，请重试"),
+                lib_missing: t("这个版本没有打包翻译引擎，请安装新构建的安装包"),
+                models_missing: t("这个版本没有打包翻译模型，请安装完整版"),
+                unsupported: t("目前只支持中文与英语互译"),
             };
-            let message = messages[payload.kind];
-            if (payload.kind === 'unavailable') {
-                message = t("语言包未下载：请在翻译 App 里下载「{0}」", payload.language || this.translateLangName(this.tr.from));
-            }
-            this.showToast(message || t("翻译失败，请确认翻译 App 已下载对应语言包"));
+            const message = messages[payload.kind];
+            this.showToast(message || t("翻译失败"));
         }
 
         phraseCardOpen() {

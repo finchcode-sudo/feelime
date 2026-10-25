@@ -3,3 +3,8 @@ Feelime
 Feelime uses sherpa-onnx and pretrained models published by the k2-fsa
 project. Their source repositories and model documentation contain the
 applicable notices and licenses.
+
+Built-in offline translation (zh<->en)
+  - slimt-sys / slimt inference engine (MIT): https://github.com/DavidVentura/slimt-sys
+  - Translation models from Mozilla Firefox Translations (bergamot), MPL-2.0
+    https://github.com/mozilla/firefox-translations-models
