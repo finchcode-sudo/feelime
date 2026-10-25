@@ -3199,13 +3199,18 @@ button:disabled { cursor: default; }
 #translateCard .tc-input:focus { outline: none; box-shadow: inset 0 0 0 1px var(--accent); }
 #translateCard .tc-input::placeholder { color: var(--input-placeholder); opacity: 1; }
 
-/* ===== 横屏悬浮小键盘（谷歌输入法式）：键盘缩成靠右的圆角卡片，宿主 App 不再被
- * 顶缩（原生 onComputeInsets 配合，可触摸区只限卡片）。卡片贴底、上圆角；宽度
- * 按视口比例夹在 [320, 440]px，足够放下工具栏图标。 */
+/* ===== 横屏悬浮小键盘（对照 Yuyan 输入法的做法）：键盘按「竖屏尺寸」排版，再整体缩到
+ * 3/4 放在屏幕右下，这样键位、提示字的比例和竖屏一致，不会因为变窄而叠字。
+ * 缩放用 transform（getBoundingClientRect 返回的是缩放后的可见矩形，原生可触摸区
+ * 就按它算）。宿主 App 不再被顶缩（原生 onComputeInsets 配合）。 */
 body.landscape.kb-float #softKeyboard {
     left: auto;
-    right: 16px;
-    width: clamp(320px, 42vw, 440px);
-    border-radius: 24px 24px 0 0;
-    box-shadow: 0 -2px 18px #00000038;
+    right: 24px;
+    bottom: 16px;
+    width: var(--float-base-w, 360px);
+    padding: 4px;
+    border-radius: 28px;
+    box-shadow: 0 6px 24px #00000040;
+    transform: scale(.75);
+    transform-origin: right bottom;
 }

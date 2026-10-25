@@ -7100,6 +7100,10 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
         applyFloatMode() {
             const on = !!(this.landscape && this.floatLandscape);
             document.body.classList.toggle('kb-float', on);
+            // 按竖屏宽度（屏幕短边）排版，再缩 3/4（见 CSS）。
+            const scr = window.screen || {};
+            const shortSide = Math.min(scr.width || 360, scr.height || 360);
+            document.documentElement.style.setProperty('--float-base-w', Math.max(300, shortSide) + 'px');
             this.syncFloatRect();
         }
 

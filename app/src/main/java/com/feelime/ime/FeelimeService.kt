@@ -290,6 +290,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
     @Volatile private var floatRectPx: android.graphics.Rect? = null
     /** 最近一次量出的 IME 视图总高（键区 + 弹层带），悬浮态 insets 用。 */
     @Volatile private var lastWindowTotalHeight = 0
+    private var lastFloatSig = ""
     // Last notified bottom safe area; never used as the current measurement.
     private var lastSafeBottom = -1
     // #39：最近一次已采纳的挖孔侧安全区（onBottomInsetChanged 比较键之一）。
@@ -1147,6 +1148,12 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
                 region.left = (region.left - dp(120)).coerceAtLeast(0)
             }
             outInsets.touchableRegion.set(region)
+            val sig = "${region.left},${region.top},${region.right},${region.bottom}|$total|$overlayOpen"
+            if (sig != lastFloatSig) {
+                lastFloatSig = sig
+                Diagnostics.log("float", "insets region=${region.flattenToString()} total=$total overlay=$overlayOpen " +
+                    "screen=${resources.displayMetrics.widthPixels}x${resources.displayMetrics.heightPixels}")
+            }
             return
         }
         val band = floatBandPx()
@@ -3362,6 +3369,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
                         null
                     }
                     if (next == floatRectPx) return@onMain
+                    Diagnostics.log("float", "setFloatRect css=$left,$top,$right,$bottom px=${next?.flattenToString()} density=$density")
                     floatRectPx = next
                     applyChromeColor()
                     (keyboardView?.parent as? View)?.requestLayout()
