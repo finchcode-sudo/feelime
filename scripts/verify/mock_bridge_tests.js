@@ -3455,6 +3455,23 @@ test('phrase card edits the rank with +/- steppers', {since: '3.25.0'}, () => {
         'save carries id/text/code/rank');
 });
 
+test('landscape float keyboard: kb-float only in landscape with native opt-in, rect pushed and cleared', {since: '3.73.67'}, () => {
+    const world = fresh();
+    world.hello({ orientation: 'landscape', floatLandscape: true });
+    assert(world.document.body.classList.contains('kb-float'), 'landscape + opt-in floats');
+    const pushes = () => world.native.of('setFloatRect');
+    assert(pushes().length >= 1, 'card rect pushed to native');
+    const last = pushes().slice(-1)[0].args;
+    assert(last[2] > last[0] && last[3] > last[1], 'rect is non-empty: ' + last.slice(0, 4));
+    world.hello({ orientation: 'portrait', floatLandscape: true });
+    assert(!world.document.body.classList.contains('kb-float'), 'portrait never floats');
+    const cleared = pushes().slice(-1)[0].args;
+    equal(cleared.slice(0, 4).join(','), '0,0,0,0', 'rect cleared on leaving float');
+    const off = fresh();
+    off.hello({ orientation: 'landscape', floatLandscape: false });
+    assert(!off.document.body.classList.contains('kb-float'), 'native opt-out keeps the docked keyboard');
+});
+
 test('offline translate card: debounced translateText, live write into host, finalize on close', {since: '3.73.67'}, () => {
     const world = fresh();
     world.hello();

@@ -40,6 +40,8 @@ object BridgeContract {
         "handwriting-v1",
         // 离线翻译（translateText + onTranslateResult）：内置引擎，中英互译；不进键盘的 REQUIRED，旧壳缺它翻译面板只提示。
         "translate-v1",
+        // 横屏悬浮小键盘（setFloatRect + hello.floatLandscape）。
+        "float-landscape-v1",
     )
 
     fun isCompatible(minNativeApi: Long, requiredCapabilities: Collection<String>): Boolean =

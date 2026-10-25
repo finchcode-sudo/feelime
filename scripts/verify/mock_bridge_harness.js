@@ -885,6 +885,9 @@ class MockNative {
     translateText(reqId, text, from, to, token) {
         this._record('translateText', [reqId, text, from, to, token]);
     }
+    setFloatRect(left, top, right, bottom, token) {
+        this._record('setFloatRect', [left, top, right, bottom, token]);
+    }
     translationLive(text, token) {
         this._record('translationLive', [text, token]);
     }

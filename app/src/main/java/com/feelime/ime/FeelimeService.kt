@@ -283,6 +283,13 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
     // band is transparent and NOT touchable until this flips (see
     // onComputeInsets).
     private var overlayOpen = false
+
+    /** 横屏悬浮键盘（谷歌输入法式）：键盘卡片在窗口里的矩形（窗口坐标，px），
+     *  由键盘页经 setFloatRect 推来；非空时 onComputeInsets 不让宿主 App 缩小，
+     *  可触摸区只限卡片，卡片以外的点击落回宿主。null = 常规贴底键盘。 */
+    @Volatile private var floatRectPx: android.graphics.Rect? = null
+    /** 最近一次量出的 IME 视图总高（键区 + 弹层带），悬浮态 insets 用。 */
+    @Volatile private var lastWindowTotalHeight = 0
     // Last notified bottom safe area; never used as the current measurement.
     private var lastSafeBottom = -1
     // #39：最近一次已采纳的挖孔侧安全区（onBottomInsetChanged 比较键之一）。
@@ -590,7 +597,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
             var color = chromeColor ?: Color.TRANSPARENT
             // #39 横屏整体透明度：<100% 时窗口涂层一并透明——涂层（导航
             // 栏色/底部条）画在半透键盘下面会挡住要透视的宿主内容。
-            if (landscapeOpacityPct() < 100) color = Color.TRANSPARENT
+            if (landscapeOpacityPct() < 100 || floatRectPx != null) color = Color.TRANSPARENT
             w.navigationBarColor = color
             w.setBackgroundDrawable(object : android.graphics.drawable.Drawable() {
                 private val paint = android.graphics.Paint()
@@ -1123,6 +1130,25 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
      */
     override fun onComputeInsets(outInsets: android.inputmethodservice.InputMethodService.Insets) {
         super.onComputeInsets(outInsets)
+        val floatRect = floatRectPx
+        if (floatRect != null &&
+            resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        ) {
+            // 悬浮态：宿主 App 不被缩小（内容/可见顶边都落在窗口底），只有卡片
+            // 可触摸；弹层带打开时把卡片上方的带一并放进可触摸区。
+            val total = maxOf(lastWindowTotalHeight, floatRect.bottom)
+            outInsets.contentTopInsets = total
+            outInsets.visibleTopInsets = total
+            outInsets.touchableInsets =
+                android.inputmethodservice.InputMethodService.Insets.TOUCHABLE_INSETS_REGION
+            val region = android.graphics.Rect(floatRect)
+            if (overlayOpen) {
+                region.top = 0
+                region.left = (region.left - dp(120)).coerceAtLeast(0)
+            }
+            outInsets.touchableRegion.set(region)
+            return
+        }
         val band = floatBandPx()
         if (band <= 0) return
         outInsets.contentTopInsets = band
@@ -2019,6 +2045,9 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
             .put("uiLanguage", UiLanguage.choice(this))
             .put("uiLocale", UiLanguage.locale(this))
             .put("orientation", if (landscape) "landscape" else "portrait")
+            // 横屏悬浮小键盘（谷歌输入法式）；偏好 landscape_float 默认开，无界面开关。
+            .put("floatLandscape", getSharedPreferences("feelime_keyboard", MODE_PRIVATE)
+                .getBoolean("landscape_float", true))
             // Content stays above the system navigation/gesture area in
             // either orientation; the native view carries the extra space.
             .put("safeBottom", (safeBottomSnapshot() / resources.displayMetrics.density).toInt())
@@ -3317,6 +3346,28 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
             applyChromeColor()
         }
 
+        /** 横屏悬浮键盘：键盘页量到卡片矩形（CSS px，窗口坐标）后推来；全 0 =
+         *  退出悬浮（竖屏或设置关闭）。换算成 px 存起来并重排，让 IME 重算 insets。 */
+        @JavascriptInterface
+        fun setFloatRect(left: Int, top: Int, right: Int, bottom: Int, token: String) =
+            guarded(token, limited = false) {
+                onMain {
+                    val density = resources.displayMetrics.density
+                    val next = if (right > left && bottom > top) {
+                        android.graphics.Rect(
+                            (left * density).toInt(), (top * density).toInt(),
+                            (right * density).toInt(), (bottom * density).toInt(),
+                        )
+                    } else {
+                        null
+                    }
+                    if (next == floatRectPx) return@onMain
+                    floatRectPx = next
+                    applyChromeColor()
+                    (keyboardView?.parent as? View)?.requestLayout()
+                }
+            }
+
         /** A popup moved into the float band above the keyboard -
          * the band must become touchable until it closes (onComputeInsets
          * reads overlayOpen). The requestLayout ride makes the IME recompute
@@ -4357,6 +4408,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
             // top; onComputeInsets keeps the app sized to the keyboard
             // alone (contentTopInsets = band).
             val total = height + floatBandPx()
+            lastWindowTotalHeight = total
             // Height settled at a new value: tell the JS once more AFTER the
             // layout. Hello's deferred re-derives land at arbitrary offsets
             // from this measure and can bake a mid-flight row budget that

@@ -7095,10 +7095,41 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
 
         /* ===== orientation & keyboard height  ===== */
 
+        /** 横屏悬浮小键盘（谷歌输入法式）：横屏且原生允许时，键盘缩成靠右的
+         *  圆角卡片、不再顶缩宿主 App；卡片矩形推给原生做可触摸区。 */
+        applyFloatMode() {
+            const on = !!(this.landscape && this.floatLandscape);
+            document.body.classList.toggle('kb-float', on);
+            this.syncFloatRect();
+        }
+
+        syncFloatRectSoon() {
+            if (this._floatTimer) return;
+            this._floatTimer = setTimeout(() => {
+                this._floatTimer = 0;
+                this.syncFloatRect();
+            }, 0);
+        }
+
+        syncFloatRect() {
+            if (typeof Native.setFloatRect !== 'function') return;
+            let rect = [0, 0, 0, 0];
+            if (document.body.classList.contains('kb-float')) {
+                const r = document.getElementById('softKeyboard').getBoundingClientRect();
+                rect = [Math.max(0, Math.floor(r.left)), Math.max(0, Math.floor(r.top)),
+                    Math.ceil(r.right), Math.ceil(window.innerHeight || r.bottom)];
+            }
+            const key = rect.join(',');
+            if (key === this._floatKey) return;
+            this._floatKey = key;
+            this.call(() => Native.setFloatRect(rect[0], rect[1], rect[2], rect[3], this.token));
+        }
+
         applyOrientation(landscape) {
             if (this.landscape === landscape) return;
             this.landscape = landscape;
             document.body.classList.toggle('landscape', landscape);
+            this.applyFloatMode();
             // Stored heights are per orientation; pick the right one, then
             // re-render the letter rows (the layout folds in landscape).
             this.kbHeight = this.storedKbHeight();
@@ -7863,6 +7894,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
         }
 
         applyHeight() {
+            this.syncFloatRectSoon();
             const view = document.getElementById('softKeyboard');
             const total = (view && view.clientHeight) || window.innerHeight;
             const safe = this.safeBottomPx();
@@ -11554,10 +11586,12 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 } catch (_) { /* storage unavailable */ }
             }
             // Native orientation wins over the resize heuristic.
+            this.floatLandscape = payload.floatLandscape === true;
             if (payload.orientation) {
                 this.helloOrientation = payload.orientation;
                 this.applyOrientation(payload.orientation === 'landscape');
             }
+            this.applyFloatMode();
             // The band shrinks the keyboard INSIDE an unchanged
             // viewport - no resize event fires and applyOrientation
             // early-returns on a same-orientation hello, so the row budget
