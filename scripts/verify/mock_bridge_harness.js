@@ -885,6 +885,12 @@ class MockNative {
     translateText(reqId, text, from, to, token) {
         this._record('translateText', [reqId, text, from, to, token]);
     }
+    translationLive(text, token) {
+        this._record('translationLive', [text, token]);
+    }
+    translationLiveEnd(token) {
+        this._record('translationLiveEnd', [token]);
+    }
     // 手写识别（issue #28，design/handwriting.md §3）：只记录调用；
     // 结果由测试经 world.context.window.Feelime.onInkCandidates 注入。
     recognizeInk(reqId, payload, token) {

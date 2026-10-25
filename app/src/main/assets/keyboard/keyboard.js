@@ -10516,15 +10516,6 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             document.getElementById('translateFrom').addEventListener('click', () => this.toggleTranslateMenu('from'));
             document.getElementById('translateTo').addEventListener('click', () => this.toggleTranslateMenu('to'));
             document.getElementById('translateSwap').addEventListener('click', () => this.swapTranslateLangs());
-            document.getElementById('translateClear').addEventListener('click', () => {
-                input.value = '';
-                this.rememberPanelSelection(input);
-                this.reportPanelSelection();
-                this.scheduleTranslate(true);
-                input.focus();
-            });
-            document.getElementById('translateInsert').addEventListener('click', () => this.insertTranslation());
-            document.getElementById('translateResult').addEventListener('click', () => this.insertTranslation());
             input.addEventListener('focus', () => this.setPanelInput(true));
             // 卡开着时重定向保持（点候选/键盘会让输入框失焦，不能在 blur 里放掉）。
             input.addEventListener('input', () => this.scheduleTranslate());
@@ -10598,7 +10589,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
 
         openTranslateCard() {
             if (this.translateCardOpen()) { this.closeTranslateCard(); return; }
-            if (typeof Native.translateText !== 'function') {
+            if (typeof Native.translateText !== 'function' || typeof Native.translationLive !== 'function') {
                 this.showToast(t("当前版本不支持离线翻译，请更新键盘"));
                 return;
             }
@@ -10613,7 +10604,6 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             this.tr.text = '';
             this.tr.result = '';
             this.renderTranslateLangs();
-            this.renderTranslateResult('idle');
             this.closeTranslateMenu();
             // 卡借键区打字：记住被替换的键层，关闭时原样归还。
             this.translateKeyLayer = this.keyLayer;
@@ -10659,6 +10649,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
         teardownTranslateCard() {
             const card = document.getElementById('translateCard');
             if (!card) return;
+            this.translateLiveEnd();
             card.classList.remove('open');
             card.hidden = true;
             if (this.tr) {
@@ -10681,14 +10672,21 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             this.translateKeyLayer = null;
         }
 
-        renderTranslateResult(kind, text) {
-            const box = document.getElementById('translateResult');
-            box.className = 'tc-result' + (kind === 'ok' ? '' : kind === 'err' ? ' err' : ' dim');
-            const messages = {
-                idle: t("译文显示在这里（点一下插入）"),
-                busy: t("翻译中…"),
-            };
-            box.textContent = kind === 'ok' || kind === 'err' ? (text || '') : messages[kind] || '';
+        /** 译文直接写进宿主输入框（谷歌输入法式）：作为组合串，每次覆盖上一版，
+         *  空串即清掉；关卡时定稿（translationLiveEnd）。不走 commitText——卡开着
+         *  时 commitText 会被原生改道写回卡内的输入框。 */
+        translateLive(text) {
+            this.tr.result = text;
+            this.tr.live = true;
+            this.call(() => Native.translationLive(text, this.token));
+        }
+
+        translateLiveEnd() {
+            if (!this.tr || !this.tr.live) return;
+            this.tr.live = false;
+            if (typeof Native.translationLiveEnd === 'function') {
+                this.call(() => Native.translationLiveEnd(this.token));
+            }
         }
 
         scheduleTranslate(immediate) {
@@ -10703,16 +10701,14 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             // 拼音组合中（输入框里是未上屏的字母）先不翻，上屏后会再触发。
             if (this.panelSpans && this.panelSpans.get(input)) return;
             const text = input.value.trim();
+            this.tr.id += 1;
             if (!text) {
-                this.tr.id += 1;
                 this.tr.text = '';
+                if (this.tr.live) this.translateLive('');
                 this.tr.result = '';
-                this.renderTranslateResult('idle');
                 return;
             }
-            this.tr.id += 1;
             this.tr.text = text;
-            this.renderTranslateResult('busy');
             const id = this.tr.id;
             const from = this.tr.from;
             const to = this.tr.to;
@@ -10722,11 +10718,9 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
         onTranslateResult(payload) {
             if (!payload || !this.translateCardOpen() || payload.id !== this.tr.id) return;
             if (payload.ok) {
-                this.tr.result = String(payload.text || '');
-                this.renderTranslateResult('ok', this.tr.result);
+                this.translateLive(String(payload.text || ''));
                 return;
             }
-            this.tr.result = '';
             const messages = {
                 not_installed: t("未安装离线翻译 App：请先安装 Offline Translator（dev.davidv.translator）并下载语言包"),
                 not_ready: t("无法连接翻译 App，请先打开它一次"),
@@ -10737,19 +10731,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             if (payload.kind === 'unavailable') {
                 message = t("语言包未下载：请在翻译 App 里下载「{0}」", payload.language || this.translateLangName(this.tr.from));
             }
-            this.renderTranslateResult('err', message || t("翻译失败，请确认翻译 App 已下载对应语言包"));
-        }
-
-        insertTranslation() {
-            const text = this.tr && this.tr.result;
-            if (!text) return;
-            // 先放掉面板重定向并收卡，再向宿主输入框提交：卡开着时 commitText
-            // 会被原生改道写回卡内的输入框。
-            this.closeTranslateCard();
-            setTimeout(() => this.call(() => {
-                if (typeof Native.pasteText === 'function') Native.pasteText(text, this.token);
-                else Native.commitText(text, this.token);
-            }), 80);
+            this.showToast(message || t("翻译失败，请确认翻译 App 已下载对应语言包"));
         }
 
         phraseCardOpen() {

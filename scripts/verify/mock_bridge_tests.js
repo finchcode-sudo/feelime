@@ -3455,7 +3455,7 @@ test('phrase card edits the rank with +/- steppers', {since: '3.25.0'}, () => {
         'save carries id/text/code/rank');
 });
 
-test('offline translate card: debounced translateText, stale replies dropped, insert after release', {since: '3.73.67'}, () => {
+test('offline translate card: debounced translateText, live write into host, finalize on close', {since: '3.73.67'}, () => {
     const world = fresh();
     world.hello();
     const tool = world.$('translateTool');
@@ -3480,23 +3480,18 @@ test('offline translate card: debounced translateText, stale replies dropped, in
     equal(calls.length >= 1, true, 'translateText called after the debounce');
     const last = calls[calls.length - 1].args;
     equal(JSON.stringify(last.slice(1, 4)), JSON.stringify(['你好', 'zh', 'en']), 'text/from/to');
-    // 过期回包（id 不符）被丢弃，正确 id 的回包渲染。
+    // 过期回包（id 不符）被丢弃；正确 id 的回包直接实时写进宿主（组合串）。
+    const lives = () => world.native.of('translationLive');
     world.context.Feelime.onTranslateResult({ id: last[0] - 1, ok: true, text: 'stale' });
-    assert(world.$('translateResult').textContent !== 'stale', 'stale reply dropped');
+    assert(lives().length === 0, 'stale reply dropped');
     world.context.Feelime.onTranslateResult({ id: last[0], ok: true, text: 'Hello' });
-    equal(world.$('translateResult').textContent, 'Hello', 'result rendered');
-    // 错误形态：语言包未下载
-    world.context.Feelime.onTranslateResult({ id: last[0], ok: false, kind: 'unavailable', language: 'Chinese' });
-    assert(world.$('translateResult').textContent.includes('Chinese'), 'unavailable names the language');
-    world.context.Feelime.onTranslateResult({ id: last[0], ok: true, text: 'Hello' });
-    // 插入：先收卡放掉重定向，再延时提交到宿主。
-    world.tap(world.$('translateInsert'));
-    assert(!card.classList.contains('open'), 'card closed on insert');
+    equal(lives().slice(-1)[0].args[0], 'Hello', 'translation written live into the host editor');
+    // 收卡：先定稿宿主里的译文，再放掉重定向、归还高度。
+    world.tap(world.$('translateClose'));
+    assert(!card.classList.contains('open'), 'card closed');
+    equal(world.native.of('translationLiveEnd').length, 1, 'host translation finalized once');
+    assert(world.native.of('panelInput').slice(-1)[0].args[0] === false, 'redirect released');
     equal(boosts().slice(-1)[0].args[0], 0, 'height restored when the dock closes');
-    assert(world.native.of('panelInput').slice(-1)[0].args[0] === false, 'redirect released before commit');
-    world.clock.advance(100);
-    const pasted = (world.native.of('pasteText').concat(world.native.of('commitText'))).slice(-1)[0];
-    equal(pasted && pasted.args[0], 'Hello', 'translation lands in the host editor');
 });
 
 test('custom keys: settings-page table adopts on hello; bad tables ignored (§15)', {since: '3.21.0'}, () => {

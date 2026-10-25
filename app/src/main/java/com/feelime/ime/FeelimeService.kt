@@ -3247,7 +3247,8 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
                 } else {
                     val physical = (heightCssPx * resources.displayMetrics.density).toInt()
                     val min = dp(if (landscape) 170 else 226)
-                    val max = if (landscape) landscapeCeilPx() else (realHeightPixels() * 45) / 100
+                    // 翻译卡停靠时键盘要整体抬高一块（键位不缩），竖屏上限放到 60%。
+                    val max = if (landscape) landscapeCeilPx() else (realHeightPixels() * 60) / 100
                     physical.coerceIn(min, maxOf(min, max))
                 }
                 if (target != keyboardHeightOverride) {
@@ -3540,6 +3541,24 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
                     evaluate("window.Feelime && window.Feelime.onTranslateResult && window.Feelime.onTranslateResult($payload)")
                 }
             }
+
+        /** 离线翻译的宿主回写（谷歌输入法式）：译文作为宿主输入框的组合串
+         *  实时显示，每次覆盖上一版，空串即清掉。直接走 InputConnection，
+         *  不经面板重定向（翻译卡开着时 commitText 会被改道写进卡内输入框）。 */
+        @JavascriptInterface
+        fun translationLive(text: String, token: String) = guarded(token, limited = true) {
+            if (text.length > MAX_TRANSLATE_CHARS * 8 || isSensitiveEditor()) {
+                rejectedCalls += 1
+                return@guarded
+            }
+            currentInputConnection?.setComposingText(text, 1)
+        }
+
+        /** 翻译卡收起：把宿主里的译文定稿（去掉组合下划线，文字保留）。 */
+        @JavascriptInterface
+        fun translationLiveEnd(token: String) = guarded(token, limited = true) {
+            currentInputConnection?.finishComposingText()
+        }
 
         /** 中文联想点击（docs/design/association.md §3）：写入编辑器，
          * 然后以该词为前词给出连续联想。 */
