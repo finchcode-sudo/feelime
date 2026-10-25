@@ -65,12 +65,94 @@ object OfflineTranslator {
         if (source != "zh" && source != "en") return Result.Fail("unsupported")
         if (to != "zh" && to != "en") return Result.Fail("unsupported")
         if (source == to) return Result.Ok(text)
-        val engine = ensureLoaded(context)
-        if (engine is Result.Fail) return engine
+        // 词汇表里的专有名词（抖音→TikTok 等）直接替换，其余片段才交给引擎，
+        // 引擎只会按字面翻（抖音→trembling）。
+        val pieces = splitByGlossary(context, text, source)
+        val outputs = ArrayList<String>()
         val pair = if (source == "zh") 0 else 1
-        val out = nativeTranslate(handle, pair, text)
-            ?: return Result.Fail("error", nativeLastError())
-        return Result.Ok(out)
+        for (piece in pieces) {
+            if (piece.fixed != null) {
+                outputs += piece.fixed
+            } else if (piece.text.isNotBlank()) {
+                val failed = ensureLoaded(context)
+                if (failed != null) return failed
+                val out = nativeTranslate(handle, pair, piece.text.trim())
+                    ?: return Result.Fail("error", nativeLastError())
+                outputs += out.trim()
+            }
+        }
+        val joined = if (to == "en") {
+            outputs.joinToString(" ").replace(Regex("\\s+([,.;:!?])"), "$1")
+        } else {
+            outputs.joinToString("")
+        }
+        return Result.Ok(joined)
+    }
+
+    /** [fixed] 非空 = 词汇表命中的专有名词（已是目标语言写法），不再翻译。 */
+    private class Piece(val text: String, val fixed: String?)
+
+    @Volatile private var glossary: List<Pair<String, String>>? = null
+
+    /** assets/translate-glossary.tsv：每行「中文<TAB>English」，# 开头为注释。 */
+    private fun loadGlossary(context: Context): List<Pair<String, String>> {
+        glossary?.let { return it }
+        val loaded = try {
+            context.assets.open("translate-glossary.tsv").bufferedReader(Charsets.UTF_8).useLines { lines ->
+                lines.map { it.trim() }
+                    .filter { it.isNotEmpty() && !it.startsWith("#") }
+                    .mapNotNull { line ->
+                        val cut = line.indexOf('\t')
+                        if (cut <= 0 || cut == line.length - 1) null
+                        else line.substring(0, cut).trim() to line.substring(cut + 1).trim()
+                    }
+                    .toList()
+            }
+        } catch (e: java.io.IOException) {
+            emptyList()
+        }
+        glossary = loaded
+        return loaded
+    }
+
+    private fun splitByGlossary(context: Context, text: String, source: String): List<Piece> {
+        val entries = loadGlossary(context)
+        if (entries.isEmpty()) return listOf(Piece(text, null))
+        val pieces = ArrayList<Piece>()
+        if (source == "zh") {
+            val terms = entries.sortedByDescending { it.first.length }
+            val plain = StringBuilder()
+            var i = 0
+            while (i < text.length) {
+                val hit = terms.firstOrNull { text.startsWith(it.first, i) }
+                if (hit != null) {
+                    if (plain.isNotEmpty()) {
+                        pieces += Piece(plain.toString(), null)
+                        plain.setLength(0)
+                    }
+                    pieces += Piece(hit.first, hit.second)
+                    i += hit.first.length
+                } else {
+                    plain.append(text[i])
+                    i += 1
+                }
+            }
+            if (plain.isNotEmpty()) pieces += Piece(plain.toString(), null)
+        } else {
+            val byEnglish = entries.associate { it.second.lowercase() to it.first }
+            val alternation = entries.map { it.second }.sortedByDescending { it.length }
+                .joinToString("|") { Regex.escape(it) }
+            val regex = Regex("(?<![A-Za-z0-9])(?:$alternation)(?![A-Za-z0-9])", RegexOption.IGNORE_CASE)
+            var last = 0
+            for (match in regex.findAll(text)) {
+                if (match.range.first > last) pieces += Piece(text.substring(last, match.range.first), null)
+                val zh = byEnglish[match.value.lowercase()]
+                pieces += if (zh != null) Piece(match.value, zh) else Piece(match.value, null)
+                last = match.range.last + 1
+            }
+            if (last < text.length) pieces += Piece(text.substring(last), null)
+        }
+        return pieces
     }
 
     /** 成功返回 null（句柄已就绪），失败返回对应的 Fail。 */
