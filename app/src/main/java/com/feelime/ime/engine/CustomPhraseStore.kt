@@ -40,9 +40,10 @@ object CustomPhraseStore {
     // capitalize + DAILY/COLLIDING 字面量小写化）。txt 是生成缓存不随
     // APK 重装刷新——升 DERIVE_VERSION 让 load 触发重派生 + 引擎重载。
     // 6：新增内置词表资产 builtin-words.tsv（人名等专有词，叠加层）。
+    // 8：builtin-words.tsv 新增「彩月七绪」。
     // 7：词库本体（导入/自造/内置）额外落 T9 数字码行——九宫格的按键序列是
     // 数字，字母码在 T9 下命不中。
-    private const val DERIVE_VERSION = 7
+    private const val DERIVE_VERSION = 8
 
     private const val T9_DIGITS = "22233344455566677778889999"
 
