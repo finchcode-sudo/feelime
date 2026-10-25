@@ -3455,6 +3455,46 @@ test('phrase card edits the rank with +/- steppers', {since: '3.25.0'}, () => {
         'save carries id/text/code/rank');
 });
 
+test('offline translate card: debounced translateText, stale replies dropped, insert after release', {since: '3.73.67'}, () => {
+    const world = fresh();
+    world.hello();
+    const tool = world.$('translateTool');
+    assert(tool, 'translate tool exists in the toolbar pool');
+    world.tap(tool);
+    const card = world.$('translateCard');
+    assert(card.classList.contains('open') && !card.hidden, 'card opens');
+    equal(world.$('translateFrom').textContent, '中文', 'default source is Chinese');
+    equal(world.$('translateTo').textContent, '英语', 'default target is English');
+    assert(world.native.of('panelInput').slice(-1)[0].args[0] === true, 'panel input redirect armed');
+    // 面板重定向写入输入框（走 onPanelCommit）→ 防抖后发一次 translateText。
+    const input = world.$('translateInput');
+    world.document.activeElement = input;
+    world.context.Feelime.onPanelCommit({ text: '你好', session: world.context.Feelime.__panelSession });
+    input.value = '你好';
+    input.dispatchEvent && input.dispatchEvent({ type: 'input' });
+    world.clock.advance(500);
+    const calls = world.native.of('translateText');
+    equal(calls.length >= 1, true, 'translateText called after the debounce');
+    const last = calls[calls.length - 1].args;
+    equal(JSON.stringify(last.slice(1, 4)), JSON.stringify(['你好', 'zh', 'en']), 'text/from/to');
+    // 过期回包（id 不符）被丢弃，正确 id 的回包渲染。
+    world.context.Feelime.onTranslateResult({ id: last[0] - 1, ok: true, text: 'stale' });
+    assert(world.$('translateResult').textContent !== 'stale', 'stale reply dropped');
+    world.context.Feelime.onTranslateResult({ id: last[0], ok: true, text: 'Hello' });
+    equal(world.$('translateResult').textContent, 'Hello', 'result rendered');
+    // 错误形态：语言包未下载
+    world.context.Feelime.onTranslateResult({ id: last[0], ok: false, kind: 'unavailable', language: 'Chinese' });
+    assert(world.$('translateResult').textContent.includes('Chinese'), 'unavailable names the language');
+    world.context.Feelime.onTranslateResult({ id: last[0], ok: true, text: 'Hello' });
+    // 插入：先收卡放掉重定向，再延时提交到宿主。
+    world.tap(world.$('translateInsert'));
+    assert(!card.classList.contains('open'), 'card closed on insert');
+    assert(world.native.of('panelInput').slice(-1)[0].args[0] === false, 'redirect released before commit');
+    world.clock.advance(100);
+    const pasted = (world.native.of('pasteText').concat(world.native.of('commitText'))).slice(-1)[0];
+    equal(pasted && pasted.args[0], 'Hello', 'translation lands in the host editor');
+});
+
 test('custom keys: settings-page table adopts on hello; bad tables ignored (§15)', {since: '3.21.0'}, () => {
     const world = fresh();
     world.native.customKeysPayload = JSON.stringify({
@@ -4906,7 +4946,7 @@ test('toolbar edit mode: long-press enters, × removes to pool, tap adds back, d
 
     // 默认 5 个工具全在栏上（left=[ctrl,ime] right=[clipboard,favorites,mic]）；
     // 仓库里是 8 个默认不上栏的开关型/动作型工具（动态创建）。
-    equal(w.$('toolbarEditorGrid').children.length, 10, 'pool starts with the 10 extra tools (#33-1 gear + #39-10 edit + #39-12 custom)');
+    equal(w.$('toolbarEditorGrid').children.length, 11, 'pool starts with the 11 extra tools (#33-1 gear + #39-10 edit + #39-12 custom + 离线翻译)');
     ['toolTheme', 'toolVibrate', 'toolSound', 'toolAssoc', 'toolOneHand',
      'toolNumpad', 'toolEmoji', 'editTool', 'toolCustom'].forEach(id => {
         assert(w.$(id), id + ' created');
@@ -4924,7 +4964,7 @@ test('toolbar edit mode: long-press enters, × removes to pool, tap adds back, d
     w.touchDown(x);
     w.touchUp(x);
     equal(kb().toolbarRight.join(','), 'clipboard,mic', '× removes favorites from right group');
-    equal(w.$('toolbarEditorGrid').children.length, 11, 'removed tool joins the 10 extra tools');
+    equal(w.$('toolbarEditorGrid').children.length, 12, 'removed tool joins the 11 extra tools');
 
     // 点仓库里的 favorites 加回（right 组未满 → 追加到队尾）。
     // 编辑态点仓库只做「上工具栏」：favorites 的 click 直连
@@ -4937,7 +4977,7 @@ test('toolbar edit mode: long-press enters, × removes to pool, tap adds back, d
     w.touchDown(fav);
     w.touchUp(fav);
     equal(kb().toolbarRight.join(','), 'clipboard,mic,favorites', 'pool tap appends to right group');
-    equal(w.$('toolbarEditorGrid').children.length, 10, 'pool back to the 10 extra tools');
+    equal(w.$('toolbarEditorGrid').children.length, 11, 'pool back to the 11 extra tools');
 
     // #39-12：池里的定制按键必须能上栏——TOOL_CATALOG 漏登记时按钮
     // 照样创建，但接线循环遍历目录，池里那颗点不动（真机实录）。
@@ -4974,13 +5014,13 @@ test('toolbar edit mode: long-press enters, × removes to pool, tap adds back, d
     w.touchDown(xOf('mic'));
     w.touchUp(xOf('mic'));
     equal(kb().toolbarRight.join(','), 'clipboard', 'two removals land both in the pool');
-    equal(w.$('toolbarEditorGrid').children.length, 12,
-        'pool holds both removed tools + 10 extra tools (no innerHTML wipe)');
+    equal(w.$('toolbarEditorGrid').children.length, 13,
+        'pool holds both removed tools + 11 extra tools (no innerHTML wipe)');
     w.tap(w.$('toolbarEditCancel'));
     equal(kb().toolbarLeft.join(','), 'ctrl,ime', 'cancel restores left snapshot');
     equal(kb().toolbarRight.join(','), 'clipboard,mic,favorites', 'cancel restores right snapshot');
-    equal(w.$('toolbarEditorGrid').children.length, 10,
-        'pool drains back to the 10 extra tools after cancel');
+    equal(w.$('toolbarEditorGrid').children.length, 11,
+        'pool drains back to the 11 extra tools after cancel');
     equal(w.native.of('setQuickPref').filter(c => c.args[0] === 'toolbarLayout').length, 1,
         'cancel never saves');
 
@@ -4997,7 +5037,7 @@ test('toolbar edit mode: long-press enters, × removes to pool, tap adds back, d
             w.touchUp(x);
         });
     equal(kb().toolbarLeft.length + kb().toolbarRight.length, 0, 'bar fully stripped');
-    equal(w.$('toolbarEditorGrid').children.length, 15, 'all fifteen tools in the pool (#33-1 gear + #39-10 edit + #39-12 custom)');
+    equal(w.$('toolbarEditorGrid').children.length, 16, 'all sixteen tools in the pool (#33-1 gear + #39-10 edit + #39-12 custom + 离线翻译)');
     w.tap(w.$('toolbarEditDone'));
     equal(kb().toolbarEdit, false, 'empty layout saves fine');
     w.touchDown(w.$('candidateBar'));
@@ -5050,7 +5090,7 @@ test('toolbar edit mode: long-press enters, × removes to pool, tap adds back, d
     equal(st.toolbarRight.includes('ime'), true, 'ime lands in the right group');
     equal(st.toolbarLeft.length, 1, 'left group keeps one (the displaced tool)');
     equal(st.toolbarLeft.length + st.toolbarRight.length, 5, 'no tool lost in the swap');
-    equal(poolNow.children.length, 10, 'pool back to the extra tools only');
+    equal(poolNow.children.length, 11, 'pool back to the extra tools only');
     w.tap(w.$('toolbarEditCancel'));
 });
 

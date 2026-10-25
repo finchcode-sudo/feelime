@@ -249,6 +249,11 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
     // editor - a WebView input inside the IME's own view never re-routes
     // it - so editor writes must be redirected back into the panel input.
     @Volatile private var panelInputActive = false
+
+    /** 离线翻译客户端（懒建；绑定 Offline Translator 的 AIDL 服务）。 */
+    private var translatorRef: TranslatorClient? = null
+    private fun translator(): TranslatorClient =
+        translatorRef ?: TranslatorClient(applicationContext).also { translatorRef = it }
     private var panelComposeSupported = false
     private var panelInputRequested = false
     private var panelRouteGeneration = 0L
@@ -1412,6 +1417,8 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         // 收起取证：service 销毁落一行——导出里「onDestroy 之后又见
         // process start」= 进程被系统回收/重启（环形缓冲清空的元凶）。
         Diagnostics.log("svc", "destroy")
+        translatorRef?.shutdown()
+        translatorRef = null
         acceptAsrResults = false
         // #41 二轮：击键是内存累加、搭便车落盘，服务销毁时刷一次。
         InputStats.flush(applicationContext)
@@ -3508,6 +3515,32 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
             }
         }
 
+        /** 离线翻译（键盘翻译面板）。文本交给 Offline Translator 的 AIDL
+         *  服务翻译，结果经 onTranslateResult 回推；[reqId] 由 JS 递增，
+         *  用来丢弃过期回包。[from] 空串 = 自动检测。文本只在本机进程间
+         *  往返，不落盘不联网。 */
+        @JavascriptInterface
+        fun translateText(reqId: Int, text: String, from: String, to: String, token: String) =
+            guarded(token, limited = true) {
+                val valid = reqId >= 0 && text.isNotBlank() && text.length <= MAX_TRANSLATE_CHARS &&
+                    from.length <= 12 && to.isNotEmpty() && to.length <= 12
+                if (!valid) {
+                    rejectedCalls += 1
+                    return@guarded
+                }
+                translator().translate(text, from, to) { result ->
+                    val payload = JSONObject().put("id", reqId)
+                    when (result) {
+                        is TranslatorClient.Result.Ok -> payload.put("ok", true).put("text", result.text)
+                        is TranslatorClient.Result.Fail -> payload.put("ok", false)
+                            .put("kind", result.kind)
+                            .put("language", result.language ?: "")
+                            .put("message", result.message ?: "")
+                    }
+                    evaluate("window.Feelime && window.Feelime.onTranslateResult && window.Feelime.onTranslateResult($payload)")
+                }
+            }
+
         /** 中文联想点击（docs/design/association.md §3）：写入编辑器，
          * 然后以该词为前词给出连续联想。 */
         @JavascriptInterface
@@ -4402,6 +4435,8 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         // 跨过几个步长，16 已远超）与恢复缓冲的基线读取长度（字符数，
         // 超长会话删到基线尽头后恢复通道自然空转）。
         const val MAX_BACKSPACE_GESTURE_UNITS = 16
+        /** 翻译面板单次请求的字数上限（与输入框 maxlength 同源）。 */
+        const val MAX_TRANSLATE_CHARS = 500
         const val BACKSPACE_GESTURE_BASELINE_CHARS = 256
 
         /** 基线读取超时兜底：超时即无账结算并冲账延迟删除——删除不能

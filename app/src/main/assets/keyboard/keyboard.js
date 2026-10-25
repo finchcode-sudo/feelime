@@ -57,6 +57,36 @@
         "最近": "Recent",
         "引号": "Quotes",
         "货币": "Currency",
+        "离线翻译": "Offline translate",
+        "源语言": "Source language",
+        "目标语言": "Target language",
+        "互换语言": "Swap languages",
+        "在这里输入要翻译的内容": "Type text to translate",
+        "待翻译内容": "Text to translate",
+        "插入译文": "Insert translation",
+        "自动检测": "Detect language",
+        "译文显示在这里（点一下插入）": "Translation appears here (tap to insert)",
+        "翻译中…": "Translating…",
+        "当前版本不支持离线翻译，请更新键盘": "This version does not support offline translation; please update the keyboard",
+        "未安装离线翻译 App：请先安装 Offline Translator（dev.davidv.translator）并下载语言包": "Offline Translator (dev.davidv.translator) is not installed; install it and download language packs",
+        "无法连接翻译 App，请先打开它一次": "Cannot reach the translator app; open it once first",
+        "无法识别源语言，请手动选择": "Could not detect the source language; pick it manually",
+        "翻译超时，请重试": "Translation timed out; try again",
+        "语言包未下载：请在翻译 App 里下载「{0}」": "Language pack missing: download “{0}” in the translator app",
+        "翻译失败，请确认翻译 App 已下载对应语言包": "Translation failed; check the language pack is downloaded in the translator app",
+        "繁体中文": "Traditional Chinese",
+        "英语": "English",
+        "日语": "Japanese",
+        "韩语": "Korean",
+        "法语": "French",
+        "德语": "German",
+        "西班牙语": "Spanish",
+        "俄语": "Russian",
+        "意大利语": "Italian",
+        "葡萄牙语": "Portuguese",
+        "阿拉伯语": "Arabic",
+        "泰语": "Thai",
+        "越南语": "Vietnamese",
         "数学": "Math",
         "特殊": "Special",
         "序号": "Numbers",
@@ -324,6 +354,15 @@
     // 专业键面维持 26 键）。
     const MERGEABLE_14 = new Set(['pinyin', 'double-pinyin', 'direct']);
 
+    /** 离线翻译卡的语言表 [Offline Translator 的语言代码, 显示名]。代码与对方
+     *  目录一致（zh_hant = 繁体中文）；对方没下语言包时回「语言包未下载」。 */
+    const TRANSLATE_LANGS = [
+        ['zh', '中文'], ['zh_hant', '繁体中文'], ['en', '英语'], ['ja', '日语'],
+        ['ko', '韩语'], ['fr', '法语'], ['de', '德语'], ['es', '西班牙语'],
+        ['ru', '俄语'], ['it', '意大利语'], ['pt', '葡萄牙语'], ['ar', '阿拉伯语'],
+        ['th', '泰语'], ['vi', '越南语'],
+    ];
+
     /** [panel:x] DSL 的面板白名单（#50）：runPanelStep 是唯一分发点，
      *  长按空格的虚拟定制键同样经此打开面板。#65 增补：emoji=数字键盘
      *  的表情子视图（工具栏 Emoji 按钮同款入口）、custom=符号面板定制
@@ -418,6 +457,8 @@ const TOOL_CATALOG = {
     // #39-10 编辑工具条：替换键区的编辑面板（方向键/扩选/全选/
     // 复制剪切粘贴），动作全部复用现有桥通道。
     edit: 'editTool',
+    // 离线翻译卡（Gboard 式）：动作型工具，默认待在编辑仓库里。
+    translate: 'translateTool',
     // #39-12 定制按键：工具栏直达的独立面板。忘了登进这份目录的话
     // buildToggleTools 照样建按钮，但 setupToolbarEditor 的接线循环
     // 遍历的是本目录——池里那颗点不动也拖不了（真机实录）。
@@ -613,6 +654,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
         // #39-10 编辑工具条：衬线 I（编辑语义）+ 左右小箭头（选区/光标
         // 可向两侧移动；2026-09-30 用户参照图定稿）。
         edit: 'M9 4h6v2H9V4zM11 6h2v12h-2V6zM9 18h6v2H9v-2zM6 10L2.5 12 6 14zM18 10L21.5 12 18 14z',
+        translate: 'M12.87 15.07l-2.54-2.51.03-.03A17.52 17.52 0 0 0 14.07 6H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z',
         gear: 'M19.14 12.94c.04-.31.06-.62.06-.94s-.02-.63-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96a7.03 7.03 0 00-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 00-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1112 8.4a3.6 3.6 0 010 7.2z',
     };
     const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -2108,6 +2150,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             if (clipBtn) clipBtn.addEventListener('click', () => this.openPanel('clipboard'));
             const favBtn = document.getElementById('favoritesButton');
             if (favBtn) favBtn.addEventListener('click', () => this.openPanel('favorites'));
+            this.bindTranslateCard();
             document.getElementById('panelClose').addEventListener('click', () => this.closePanel());
             document.getElementById('panelClear').addEventListener('click', () => {
                 if (this.panelTab !== 'clipboard') return;
@@ -2531,6 +2574,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 document.getElementById('modeMenu').classList.contains('open') ||
                 document.getElementById('itemMenu').classList.contains('open') ||
                 document.getElementById('phraseCard').classList.contains('open') ||
+                document.getElementById('translateCard').classList.contains('open') ||
                 // The height card lives in the band too - without
                 // this line every real touch on it fell through to the host
                 // app (±/strip/cancel all dead under a finger; synthetic
@@ -7436,6 +7480,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 { key: 'numpad', id: 'toolNumpad', icon: 'numpad', label: '数字键盘' },
                 { key: 'emoji', id: 'toolEmoji', icon: 'smiley', label: 'Emoji' },
                 { key: 'edit', id: 'editTool', icon: 'edit', label: '编辑工具' },
+                { key: 'translate', id: 'translateTool', icon: 'translate', label: '离线翻译' },
                 { key: 'custom', id: 'toolCustom', icon: 'custom', label: '定制按键' },
             ];
             const pool = document.getElementById('toolbarEditorGrid');
@@ -7472,6 +7517,11 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                     // #39-10 编辑工具条：同款 toggle 语义（面板开着再点 = 回键区）。
                     if (key === 'edit') {
                         this.toggleEditPanel();
+                        return;
+                    }
+                    // 离线翻译卡：toggle 语义（卡开着再点 = 收卡）。
+                    if (key === 'translate') {
+                        this.openTranslateCard();
                         return;
                     }
                     // #39-12 定稿：不做独立面板——按钮直达符号面板的
@@ -10001,6 +10051,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
          * every routing flag (review finding - leaving any of these
          * dangling strands the UI in half-torn-down states). */
         clearEditorStrip() {
+            if (this.translateCardOpen()) this.teardownTranslateCard();
             // The floating phrase card tears down with the same
             // semantics as the legacy strip (redirect released, editing
             // class dropped, item ref cleared).
@@ -10357,6 +10408,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             const caret = start + text.length;
             try { field.setSelectionRange(caret, caret); } catch (_) {}
             this.rememberPanelSelection(field);
+            if (field.id === 'translateInput') this.scheduleTranslate();
         }
 
         insertIntoPanelInput(text, field = this.panelInputField()) {
@@ -10446,6 +10498,243 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
          * the full settings page (design §15/§6.2). */
         /** The floating phrase card is mid-edit (add or update) - panel
          * items then act as its content picker instead of committing. */
+        /* ===== 离线翻译卡（Gboard 式）=====
+         * 引擎在 Offline Translator（dev.davidv.translator）里，经原生桥
+         * translateText 调用、onTranslateResult 回推。卡是局部浮层（同常用语
+         * 编辑卡，不进 EXCLUSIVE_VIEWS）：键区保持可见用来打字，输入框走面板
+         * 重定向通道；输入停 0.45s 自动翻译，reqId 丢弃过期回包。 */
+        translateCardOpen() {
+            const card = document.getElementById('translateCard');
+            return !!card && card.classList.contains('open');
+        }
+
+        bindTranslateCard() {
+            const card = document.getElementById('translateCard');
+            if (!card) return;
+            const input = document.getElementById('translateInput');
+            this.tr = { from: 'zh', to: 'en', id: 0, timer: null, text: '', result: '', menu: null };
+            document.getElementById('translateClose').addEventListener('click', () => this.closeTranslateCard());
+            document.getElementById('translateFrom').addEventListener('click', () => this.toggleTranslateMenu('from'));
+            document.getElementById('translateTo').addEventListener('click', () => this.toggleTranslateMenu('to'));
+            document.getElementById('translateSwap').addEventListener('click', () => this.swapTranslateLangs());
+            document.getElementById('translateClear').addEventListener('click', () => {
+                input.value = '';
+                this.rememberPanelSelection(input);
+                this.reportPanelSelection();
+                this.scheduleTranslate(true);
+                input.focus();
+            });
+            document.getElementById('translateInsert').addEventListener('click', () => this.insertTranslation());
+            document.getElementById('translateResult').addEventListener('click', () => this.insertTranslation());
+            input.addEventListener('focus', () => this.setPanelInput(true));
+            // 卡开着时重定向保持（点候选/键盘会让输入框失焦，不能在 blur 里放掉）。
+            input.addEventListener('input', () => this.scheduleTranslate());
+            input.addEventListener('keydown', event => {
+                if (event.key === 'Enter') { event.preventDefault(); this.scheduleTranslate(true); }
+            });
+        }
+
+        translateLangName(code) {
+            if (!code) return t("自动检测");
+            const hit = TRANSLATE_LANGS.find(item => item[0] === code);
+            return hit ? t(hit[1]) : code;
+        }
+
+        renderTranslateLangs() {
+            document.getElementById('translateFrom').textContent = this.translateLangName(this.tr.from);
+            document.getElementById('translateTo').textContent = this.translateLangName(this.tr.to);
+            document.getElementById('translateSwap')
+                .setAttribute('aria-disabled', this.tr.from ? 'false' : 'true');
+        }
+
+        toggleTranslateMenu(side) {
+            const menu = document.getElementById('translateLangMenu');
+            if (!menu.hidden && this.tr.menu === side) { this.closeTranslateMenu(); return; }
+            this.tr.menu = side;
+            menu.textContent = '';
+            const options = side === 'from' ? [['', '自动检测']].concat(TRANSLATE_LANGS) : TRANSLATE_LANGS;
+            options.forEach(([code, name]) => {
+                const b = document.createElement('button');
+                b.textContent = t(name);
+                if (this.tr[side] === code) b.classList.add('sel');
+                b.addEventListener('click', () => {
+                    this.tr[side] = code;
+                    // 源/目标相同没有意义：撞车时把另一侧换成原来的这一侧值。
+                    const other = side === 'from' ? 'to' : 'from';
+                    if (code && this.tr[other] === code) this.tr[other] = side === 'from' ? 'en' : 'zh';
+                    if (this.tr.from && this.tr.from === this.tr.to) this.tr.to = this.tr.from === 'en' ? 'zh' : 'en';
+                    this.closeTranslateMenu();
+                    this.renderTranslateLangs();
+                    this.scheduleTranslate(true);
+                });
+                menu.append(b);
+            });
+            menu.hidden = false;
+            this.placeTranslateCard();
+        }
+
+        closeTranslateMenu() {
+            const menu = document.getElementById('translateLangMenu');
+            if (menu) menu.hidden = true;
+            if (this.tr) this.tr.menu = null;
+            if (this.translateCardOpen()) this.placeTranslateCard();
+        }
+
+        swapTranslateLangs() {
+            // 自动检测下不知道真实源语言，没法互换（同 Gboard 置灰）。
+            if (!this.tr.from) return;
+            const from = this.tr.from;
+            this.tr.from = this.tr.to;
+            this.tr.to = from;
+            // 译文成为新的原文，方便来回对译。
+            const input = document.getElementById('translateInput');
+            if (this.tr.result) {
+                input.value = this.tr.result;
+                this.rememberPanelSelection(input);
+                this.reportPanelSelection();
+            }
+            this.renderTranslateLangs();
+            this.scheduleTranslate(true);
+        }
+
+        openTranslateCard() {
+            if (this.translateCardOpen()) { this.closeTranslateCard(); return; }
+            if (typeof Native.translateText !== 'function') {
+                this.showToast(t("当前版本不支持离线翻译，请更新键盘"));
+                return;
+            }
+            this.closeOtherViews();
+            this.closeItemMenu();
+            if (this.panelOpen) this.closePanel();
+            this.clearEditorStrip();
+            const card = document.getElementById('translateCard');
+            const input = document.getElementById('translateInput');
+            input.value = '';
+            this.tr.id += 1;
+            this.tr.text = '';
+            this.tr.result = '';
+            this.renderTranslateLangs();
+            this.renderTranslateResult('idle');
+            this.closeTranslateMenu();
+            // 卡借键区打字：记住被替换的键层，关闭时原样归还。
+            this.translateKeyLayer = this.keyLayer;
+            this.showKeyLayer('letters');
+            document.getElementById('candidateBar').hidden = false;
+            document.body.classList.add('editing');
+            card.hidden = false;
+            card.classList.add('open');
+            this.placeTranslateCard();
+            this.syncOverlay();
+            input.focus();
+            this.setPanelInput(true);
+        }
+
+        placeTranslateCard() {
+            const card = document.getElementById('translateCard');
+            const kb = document.getElementById('softKeyboard').getBoundingClientRect();
+            card.style.top = '0px';
+            const h = card.offsetHeight;
+            card.style.top = Math.max(8, kb.top - h - 6) + 'px';
+        }
+
+        /** 只收卡本身（释放重定向、清状态），不动键层——clearEditorStrip 等
+         *  调用方自己管键层。 */
+        teardownTranslateCard() {
+            const card = document.getElementById('translateCard');
+            if (!card) return;
+            card.classList.remove('open');
+            card.hidden = true;
+            if (this.tr) {
+                clearTimeout(this.tr.timer);
+                this.tr.id += 1; // 在途回包作废
+                this.tr.text = '';
+                this.tr.result = '';
+            }
+            this.closeTranslateMenu();
+            document.getElementById('translateInput').value = '';
+            document.body.classList.remove('editing');
+            if (this.settingsInputFocus) this.setPanelInput(false);
+            this.syncOverlay();
+        }
+
+        closeTranslateCard() {
+            if (!this.translateCardOpen()) return;
+            this.teardownTranslateCard();
+            this.showKeyLayer(this.translateKeyLayer || 'letters');
+            this.translateKeyLayer = null;
+        }
+
+        renderTranslateResult(kind, text) {
+            const box = document.getElementById('translateResult');
+            box.className = 'tc-result' + (kind === 'ok' ? '' : kind === 'err' ? ' err' : ' dim');
+            const messages = {
+                idle: t("译文显示在这里（点一下插入）"),
+                busy: t("翻译中…"),
+            };
+            box.textContent = kind === 'ok' || kind === 'err' ? (text || '') : messages[kind] || '';
+        }
+
+        scheduleTranslate(immediate) {
+            if (!this.translateCardOpen()) return;
+            clearTimeout(this.tr.timer);
+            this.tr.timer = setTimeout(() => this.runTranslate(), immediate ? 0 : 450);
+        }
+
+        runTranslate() {
+            if (!this.translateCardOpen()) return;
+            const input = document.getElementById('translateInput');
+            // 拼音组合中（输入框里是未上屏的字母）先不翻，上屏后会再触发。
+            if (this.panelSpans && this.panelSpans.get(input)) return;
+            const text = input.value.trim();
+            if (!text) {
+                this.tr.id += 1;
+                this.tr.text = '';
+                this.tr.result = '';
+                this.renderTranslateResult('idle');
+                return;
+            }
+            this.tr.id += 1;
+            this.tr.text = text;
+            this.renderTranslateResult('busy');
+            const id = this.tr.id;
+            const from = this.tr.from;
+            const to = this.tr.to;
+            this.call(() => Native.translateText(id, text, from, to, this.token));
+        }
+
+        onTranslateResult(payload) {
+            if (!payload || !this.translateCardOpen() || payload.id !== this.tr.id) return;
+            if (payload.ok) {
+                this.tr.result = String(payload.text || '');
+                this.renderTranslateResult('ok', this.tr.result);
+                return;
+            }
+            this.tr.result = '';
+            const messages = {
+                not_installed: t("未安装离线翻译 App：请先安装 Offline Translator（dev.davidv.translator）并下载语言包"),
+                not_ready: t("无法连接翻译 App，请先打开它一次"),
+                no_detect: t("无法识别源语言，请手动选择"),
+                timeout: t("翻译超时，请重试"),
+            };
+            let message = messages[payload.kind];
+            if (payload.kind === 'unavailable') {
+                message = t("语言包未下载：请在翻译 App 里下载「{0}」", payload.language || this.translateLangName(this.tr.from));
+            }
+            this.renderTranslateResult('err', message || t("翻译失败，请确认翻译 App 已下载对应语言包"));
+        }
+
+        insertTranslation() {
+            const text = this.tr && this.tr.result;
+            if (!text) return;
+            // 先放掉面板重定向并收卡，再向宿主输入框提交：卡开着时 commitText
+            // 会被原生改道写回卡内的输入框。
+            this.closeTranslateCard();
+            setTimeout(() => this.call(() => {
+                if (typeof Native.pasteText === 'function') Native.pasteText(text, this.token);
+                else Native.commitText(text, this.token);
+            }), 80);
+        }
+
         phraseCardOpen() {
             return document.getElementById('phraseCard').classList.contains('open');
         }
@@ -11296,6 +11585,9 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             if (document.getElementById('phraseCard').classList.contains('open')) {
                 this.placePhraseCard();
             }
+            if (document.getElementById('translateCard').classList.contains('open')) {
+                this.placeTranslateCard();
+            }
             if (payload.theme === 'dark' || payload.theme === 'light') {
                 systemTheme = payload.theme;
                 systemThemeKnown = true;
@@ -11872,6 +12164,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
         onFavorites: payload => keyboard.onFavorites(payload),
         onStoresRestored: stores => keyboard.onStoresRestored(stores),
         onPanelCommit: payload => keyboard.onPanelCommit(payload),
+        onTranslateResult: payload => keyboard.onTranslateResult(payload),
         onPanelDelete: payload => keyboard.onPanelDelete(payload),
         onPanelComposing: payload => keyboard.onPanelComposing(payload),
         onPanelFinishComposing: payload => keyboard.onPanelFinishComposing(payload),

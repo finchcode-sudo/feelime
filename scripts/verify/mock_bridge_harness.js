@@ -881,6 +881,10 @@ class MockNative {
     panelInput(active, token) {
         this._record('panelInput', [active, token]);
     }
+    // 离线翻译：只记录调用；回包由测试经 Feelime.onTranslateResult 注入。
+    translateText(reqId, text, from, to, token) {
+        this._record('translateText', [reqId, text, from, to, token]);
+    }
     // 手写识别（issue #28，design/handwriting.md §3）：只记录调用；
     // 结果由测试经 world.context.window.Feelime.onInkCandidates 注入。
     recognizeInk(reqId, payload, token) {

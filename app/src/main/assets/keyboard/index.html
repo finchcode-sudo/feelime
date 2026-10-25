@@ -418,6 +418,25 @@
          shown only from quick settings. -->
     <div id="flickBlob"></div>
     <div id="toast" role="status"></div>
+    <!-- 离线翻译卡（Gboard 式）：语言栏 + 输入框 + 译文，浮在键盘上方；键区
+         保持可见用来打字（输入框走面板重定向通道，同常用语编辑卡）。引擎在
+         Offline Translator 里，经原生桥 translateText 调用。 -->
+    <section id="translateCard" hidden>
+        <div class="tc-head">
+            <button id="translateClose" class="tc-back" aria-label="关闭" data-i18n-aria-label="关闭">‹</button>
+            <button id="translateFrom" class="tc-chip" aria-label="源语言" data-i18n-aria-label="源语言"></button>
+            <button id="translateSwap" class="tc-swap" aria-label="互换语言" data-i18n-aria-label="互换语言">⇄</button>
+            <button id="translateTo" class="tc-chip" aria-label="目标语言" data-i18n-aria-label="目标语言"></button>
+        </div>
+        <div id="translateLangMenu" hidden></div>
+        <textarea id="translateInput" class="phrase-input tc-input" rows="2" maxlength="500"
+                  placeholder="在这里输入要翻译的内容" data-i18n-placeholder="在这里输入要翻译的内容" aria-label="待翻译内容" data-i18n-aria-label="待翻译内容"></textarea>
+        <div id="translateResult" class="tc-result" aria-live="polite"></div>
+        <div class="pc-actions">
+            <button id="translateClear" class="pc-btn pc-ghost" aria-label="清空" data-i18n-aria-label="清空" data-i18n="清空">清空</button>
+            <button id="translateInsert" class="pc-btn pc-main" aria-label="插入译文" data-i18n-aria-label="插入译文" data-i18n="插入译文">插入译文</button>
+        </div>
+    </section>
 </main>
 <script src="keyboard.js?v=__KB_VERSION__"></script>
 </body>

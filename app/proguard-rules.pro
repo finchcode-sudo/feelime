@@ -32,3 +32,7 @@
 # commons-compress 的 zstd 分支是可选依赖（R8 生成的 missing_rules），
 # 模型 zip 走 deflate，不用 zstd。
 -dontwarn com.github.luben.zstd.ZstdInputStream
+
+# 离线翻译 AIDL 接口（与 Offline Translator 同包名）：保守全保，避免
+# Stub/Parcelable 被改名后与对方进程的事务码/字段序不一致。
+-keep class dev.davidv.translator.** { *; }

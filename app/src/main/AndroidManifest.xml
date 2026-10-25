@@ -22,6 +22,12 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
+    <!-- 离线翻译（键盘翻译面板）：Android 11+ 包可见性。只声明要绑定的
+         Offline Translator，不读取任何其它应用列表。 -->
+    <queries>
+        <package android:name="dev.davidv.translator" />
+    </queries>
+
     <application
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"

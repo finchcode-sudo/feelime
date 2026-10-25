@@ -38,6 +38,9 @@ object BridgeContract {
         "keyboard-height-reset-v1",
         // 手写识别（design/handwriting.md §3）：recognizeInk + onInkCandidates。
         "handwriting-v1",
+        // 离线翻译（translateText + onTranslateResult）：经 AIDL 绑定
+        // Offline Translator；不进键盘的 REQUIRED，旧壳缺它翻译面板只提示。
+        "translate-v1",
     )
 
     fun isCompatible(minNativeApi: Long, requiredCapabilities: Collection<String>): Boolean =
