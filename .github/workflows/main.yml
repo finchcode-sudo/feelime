@@ -49,6 +49,12 @@ jobs:
           sudo apt-get update && sudo apt-get install -y ninja-build
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.0.13004108"
           export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.0.13004108"
+          test -d "$ANDROID_NDK_HOME" || { echo "NDK 28.0.13004108 missing"; ls "$ANDROID_HOME/ndk"; exit 1; }
+          # runner 预置的 ANDROID_NDK_ROOT 指向别的版本（如 27.x）：全部对齐到同一个，
+          # 否则 cmake 与 cargo 会各用各的工具链。
+          export ANDROID_NDK_ROOT="$ANDROID_NDK_HOME"
+          export ANDROID_NDK="$ANDROID_NDK_HOME"
+          export NDK_HOME="$ANDROID_NDK_HOME"
           cargo install cargo-ndk --locked
           # slimt-sys 的 build.rs 经 cmake 交叉编译 C++，按它文档约定设环境变量。
           export CMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake"
@@ -56,7 +62,7 @@ jobs:
           export ANDROID_PLATFORM=android-23
           export CMAKE_GENERATOR=Ninja
           cd native/feelime-translate
-          cargo ndk -t arm64-v8a -p 23 -o ../../app/src/main/jniLibs build --release
+          cargo ndk -t arm64-v8a --platform 23 -o ../../app/src/main/jniLibs build --release
           ls -la ../../app/src/main/jniLibs/arm64-v8a/libfeelime_translate.so
 
       - name: Download translation models
