@@ -44,7 +44,7 @@ object CustomPhraseStore {
     // 8：builtin-words.tsv 新增「彩月七绪」。
     // 7：词库本体（导入/自造/内置）额外落 T9 数字码行——九宫格的按键序列是
     // 数字，字母码在 T9 下命不中。
-    private const val DERIVE_VERSION = 9
+    private const val DERIVE_VERSION = 10
 
     private const val T9_DIGITS = "22233344455566677778889999"
 
