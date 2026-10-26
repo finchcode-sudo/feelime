@@ -1132,12 +1132,25 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
     override fun onComputeInsets(outInsets: android.inputmethodservice.InputMethodService.Insets) {
         super.onComputeInsets(outInsets)
         val floatRect = floatRectPx
-        if (floatRect != null &&
+        // 过期矩形（旋转时键盘页还没量到新尺寸，坐标超出窗口）不能当触摸区用：
+        // 否则卡片画在右边、触摸区却停在旧位置，点键盘全落到后面的 App。
+        val floatFits = floatRect != null && lastWindowTotalHeight > 0 &&
+            floatRect.right <= resources.displayMetrics.widthPixels + 4 &&
+            floatRect.bottom <= lastWindowTotalHeight + 4
+        if (floatRect != null && !floatFits) {
+            val sig = "stale|${floatRect.flattenToString()}|$lastWindowTotalHeight"
+            if (sig != lastFloatSig) {
+                lastFloatSig = sig
+                Diagnostics.log("float", "stale rect ignored rect=${floatRect.flattenToString()} " +
+                    "windowH=$lastWindowTotalHeight screenW=${resources.displayMetrics.widthPixels}")
+            }
+        }
+        if (floatRect != null && floatFits &&
             resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
         ) {
             // 悬浮态：宿主 App 不被缩小（内容/可见顶边都落在窗口底），只有卡片
             // 可触摸；弹层带打开时把卡片上方的带一并放进可触摸区。
-            val total = maxOf(lastWindowTotalHeight, floatRect.bottom)
+            val total = lastWindowTotalHeight
             outInsets.contentTopInsets = total
             outInsets.visibleTopInsets = total
             outInsets.touchableInsets =

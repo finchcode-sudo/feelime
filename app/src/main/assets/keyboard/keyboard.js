@@ -2259,6 +2259,9 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             // a height drag changes the view without changing orientation.
             if (typeof window.addEventListener === 'function') {
                 window.addEventListener('resize', () => this.syncFloatRectSoon());
+            if (typeof document.addEventListener === 'function') {
+                document.addEventListener('visibilitychange', () => this.syncFloatRectSoon());
+            }
             if (typeof ResizeObserver === 'function') {
                 new ResizeObserver(() => this.syncFloatRectSoon())
                     .observe(document.getElementById('softKeyboard'));
@@ -7106,10 +7109,15 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             const on = !!(this.landscape && this.floatLandscape);
             document.body.classList.toggle('kb-float', on);
             this.syncFloatRect();
-            // 旋转后 WebView 还没量到新宽高时，先推出去的矩形是旧的（真机日志：
-            // 触摸区停在竖屏坐标，点键盘全落到游戏上）。布局稳定后再对一次。
-            if (on) {
-                [120, 400, 900].forEach(ms => setTimeout(() => this.syncFloatRect(), ms));
+            // 悬浮态下轮询对账：键盘窗口隐藏时旋转，视口要等下次显示才更新，且
+            // 那时元素尺寸不变、既没有 resize 也没有 ResizeObserver 回调。矩形没变
+            // 不会重复推送，所以轮询很便宜。
+            if (this._floatPoll) {
+                clearInterval(this._floatPoll);
+                this._floatPoll = 0;
+            }
+            if (on && typeof setInterval === 'function') {
+                this._floatPoll = setInterval(() => this.syncFloatRect(), 250);
             }
         }
 
@@ -7137,6 +7145,10 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             if (typeof Native.setFloatRect !== 'function') return;
             let rect = [0, 0, 0, 0];
             if (document.body.classList.contains('kb-float')) {
+                // 旋转后键盘窗口还没显示时，WebView 的视口仍是旧方向（真机日志：
+                // 推出去的矩形是竖屏尺寸）。视口还不是横的就先不推，等轮询/可见性
+                // 事件在布局真正稳定后再推。
+                if (!((window.innerWidth || 0) > (window.innerHeight || 0))) return;
                 this.applyFloatVars();
                 const r = document.getElementById('softKeyboard').getBoundingClientRect();
                 rect = [Math.max(0, Math.floor(r.left)), Math.max(0, Math.floor(r.top)),
