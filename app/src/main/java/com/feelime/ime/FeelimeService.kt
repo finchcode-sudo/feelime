@@ -291,6 +291,11 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
     /** 最近一次量出的 IME 视图总高（键区 + 弹层带），悬浮态 insets 用。 */
     @Volatile private var lastWindowTotalHeight = 0
     private var lastFloatSig = ""
+    /** 最近一次量出的 IME 视图宽（px）：过期矩形校验用它，不用 displayMetrics
+     *  （真机日志：窗口 2378 宽而 displayMetrics 报 2258，卡片右缘 2306 被误判越界）。 */
+    @Volatile private var lastWindowWidthPx = 0
+    private var outsideHookInstalled = false
+    private var lastOutsideHideAt = 0L
     // Last notified bottom safe area; never used as the current measurement.
     private var lastSafeBottom = -1
     // #39：最近一次已采纳的挖孔侧安全区（onBottomInsetChanged 比较键之一）。
@@ -593,8 +598,49 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
      * （评审 P1：整窗 ColorDrawable 会把键盘上方至多 200dp 的透明
      * 悬浮候选带（float band，设计上透出 app）变成实色条）——带之上
      * 保持透明，条带高度跟 navBottomInset() 动态取。 */
+    /** 悬浮态：点卡片以外的地方（比如宿主的发送按钮）时让键盘立刻收起。点击本身
+     *  仍会落到宿主（ACTION_OUTSIDE 不吞事件）。靠 FLAG_WATCH_OUTSIDE_TOUCH +
+     *  包一层 Window.Callback 收 ACTION_OUTSIDE；非悬浮态清掉标志，行为不变。 */
+    private fun syncOutsideWatch() {
+        val w = window?.window ?: return
+        if (floatRectPx != null) {
+            w.addFlags(android.view.WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH)
+            if (!outsideHookInstalled) {
+                val original = w.callback
+                if (original != null) {
+                    w.callback = object : android.view.Window.Callback by original {
+                        override fun dispatchTouchEvent(event: android.view.MotionEvent): Boolean {
+                            if (event.actionMasked == android.view.MotionEvent.ACTION_OUTSIDE) {
+                                onFloatOutsideTouch()
+                            }
+                            return original.dispatchTouchEvent(event)
+                        }
+                    }
+                    outsideHookInstalled = true
+                }
+            }
+        } else {
+            w.clearFlags(android.view.WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH)
+        }
+    }
+
+    private fun onFloatOutsideTouch() {
+        if (floatRectPx == null || overlayOpen) return
+        val now = android.os.SystemClock.uptimeMillis()
+        if (now - lastOutsideHideAt < 400) return
+        lastOutsideHideAt = now
+        Diagnostics.log("float", "outside touch -> hide keyboard")
+        requestHideSelf(0)
+    }
+
     private fun applyChromeColor() {
         getWindow()?.window?.let { w ->
+            if (floatRectPx != null) {
+                // 悬浮态：窗口涂层、导航栏色一律透明，底部不留色条（谷歌悬浮键盘同款）。
+                w.navigationBarColor = Color.TRANSPARENT
+                w.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+                return@let
+            }
             var color = chromeColor ?: Color.TRANSPARENT
             // #39 横屏整体透明度：<100% 时窗口涂层一并透明——涂层（导航
             // 栏色/底部条）画在半透键盘下面会挡住要透视的宿主内容。
@@ -1134,15 +1180,16 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         val floatRect = floatRectPx
         // 过期矩形（旋转时键盘页还没量到新尺寸，坐标超出窗口）不能当触摸区用：
         // 否则卡片画在右边、触摸区却停在旧位置，点键盘全落到后面的 App。
+        val windowW = if (lastWindowWidthPx > 0) lastWindowWidthPx else resources.displayMetrics.widthPixels
         val floatFits = floatRect != null && lastWindowTotalHeight > 0 &&
-            floatRect.right <= resources.displayMetrics.widthPixels + 4 &&
+            floatRect.right <= windowW + 4 &&
             floatRect.bottom <= lastWindowTotalHeight + 4
         if (floatRect != null && !floatFits) {
             val sig = "stale|${floatRect.flattenToString()}|$lastWindowTotalHeight"
             if (sig != lastFloatSig) {
                 lastFloatSig = sig
                 Diagnostics.log("float", "stale rect ignored rect=${floatRect.flattenToString()} " +
-                    "windowH=$lastWindowTotalHeight screenW=${resources.displayMetrics.widthPixels}")
+                    "windowH=$lastWindowTotalHeight windowW=$windowW screenW=${resources.displayMetrics.widthPixels}")
             }
         }
         if (floatRect != null && floatFits &&
@@ -3385,6 +3432,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
                     Diagnostics.log("float", "setFloatRect css=$left,$top,$right,$bottom px=${next?.flattenToString()} density=$density")
                     floatRectPx = next
                     applyChromeColor()
+                    syncOutsideWatch()
                     (keyboardView?.parent as? View)?.requestLayout()
                 }
             }
@@ -4430,6 +4478,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
             // alone (contentTopInsets = band).
             val total = height + floatBandPx()
             lastWindowTotalHeight = total
+            lastWindowWidthPx = MeasureSpec.getSize(widthMeasureSpec)
             // Height settled at a new value: tell the JS once more AFTER the
             // layout. Hello's deferred re-derives land at arbitrary offsets
             // from this measure and can bake a mid-flight row budget that
