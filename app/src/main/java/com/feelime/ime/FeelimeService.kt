@@ -4499,7 +4499,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         const val MAX_JSON_CHARS = 4096
         const val MAX_CANDIDATE_ID_CHARS = 96
         const val MAX_COMMIT_CODE_POINTS = 2000
-        const val MAX_PASTE_CODE_POINTS = 20_000
+        const val MAX_PASTE_CODE_POINTS = 60_000
         const val MAX_CURSOR_DELTA = 256
         const val MAX_CURSOR_CONTEXT_CHARS = 2048
         const val MAX_PENDING_CURSOR_DELTA = 16_384L

@@ -6469,9 +6469,21 @@ test('a long clipboard item (past the old 2000 cap) still pastes in full', {sinc
     equal(pasted[0].args[0].length, 5000, 'the whole text is pasted, not a truncation');
 });
 
+test('long clipboard item (a 38k-char source file) still pastes', () => {
+    const world = fresh();
+    const long = 'x'.repeat(38000);
+    world.clipboard([{ id: 'src', time: 1, text: long }]);
+    world.tap(world.$('clipboardButton'));
+    const row = world.document.querySelectorAll('.panel-item')[0];
+    assert(!row.className.includes('disabled'), 'a 38k item is not disabled');
+    world.tap(row);
+    const sent = world.native.of('pasteText').concat(world.native.of('commitText'));
+    equal(sent.length >= 1 && sent[sent.length - 1].args[0].length, 38000, 'whole text pasted');
+});
+
 test('over-long clipboard item renders disabled and never commits', () => {
     const world = fresh();
-    const huge = 'x'.repeat(20001);
+    const huge = 'x'.repeat(60001);
     world.clipboard([{ id: 'big', time: 1, text: huge }]);
     world.tap(world.$('clipboardButton'));
     const row = world.document.querySelectorAll('.panel-item')[0];

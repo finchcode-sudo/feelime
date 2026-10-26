@@ -478,7 +478,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
     const MAX_COMMIT_CODE_POINTS = 2000;
     // 剪贴板条目整条粘贴的上限（原生 pasteText 同口径）。旧原生的 pasteText
     // 仍是 2000——没有 pasteClipImage 桥方法的就是旧原生，退回 2000。
-    const MAX_PASTE_CODE_POINTS = 20000;    // Cursor scrub: one caret step per 12px of drag at the default
+    const MAX_PASTE_CODE_POINTS = 60000;    // Cursor scrub: one caret step per 12px of drag at the default
     // 3x speed (SCRUB_UNIT_BASE_PX / scrubSpeed), counted after the fixed
     // recognition-threshold crossing. Exposes 1x..5x in the quick
     // settings panel.
