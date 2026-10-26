@@ -3205,9 +3205,11 @@ button:disabled { cursor: default; }
  * 就按它算）。宿主 App 不再被顶缩（原生 onComputeInsets 配合）。 */
 body.landscape.kb-float #softKeyboard {
     left: auto;
-    right: 24px;
-    bottom: 16px;
+    /* 右边距 = 下边距，离手机边缘等距（谷歌那张也是约等距）。 */
+    right: var(--float-gap, 24px);
+    bottom: var(--float-gap, 24px);
     width: var(--float-base-w, 360px);
+    height: var(--float-h, 310px) !important;
     padding: 4px;
     border-radius: 28px;
     box-shadow: 0 6px 24px #00000040;

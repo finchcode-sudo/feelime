@@ -2258,7 +2258,12 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             // viewport to win. Every resize re-derives the row height too -
             // a height drag changes the view without changing orientation.
             if (typeof window.addEventListener === 'function') {
-                window.addEventListener('resize', () => {
+                window.addEventListener('resize', () => this.syncFloatRectSoon());
+            if (typeof ResizeObserver === 'function') {
+                new ResizeObserver(() => this.syncFloatRectSoon())
+                    .observe(document.getElementById('softKeyboard'));
+            }
+            window.addEventListener('resize', () => {
                     // B: the IME viewport IS the keyboard - a
                     // portrait drag shrinks innerHeight below innerWidth and
                     // the old width>height test flipped the layout to the
@@ -7100,11 +7105,12 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
         applyFloatMode() {
             const on = !!(this.landscape && this.floatLandscape);
             document.body.classList.toggle('kb-float', on);
-            // 按竖屏宽度（屏幕短边）排版，再缩 3/4（见 CSS）。
-            const scr = window.screen || {};
-            const shortSide = Math.min(scr.width || 360, scr.height || 360);
-            document.documentElement.style.setProperty('--float-base-w', Math.max(300, shortSide) + 'px');
             this.syncFloatRect();
+            // 旋转后 WebView 还没量到新宽高时，先推出去的矩形是旧的（真机日志：
+            // 触摸区停在竖屏坐标，点键盘全落到游戏上）。布局稳定后再对一次。
+            if (on) {
+                [120, 400, 900].forEach(ms => setTimeout(() => this.syncFloatRect(), ms));
+            }
         }
 
         syncFloatRectSoon() {
@@ -7115,10 +7121,23 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             }, 0);
         }
 
+        /** 悬浮卡的排版尺寸：宽按竖屏短边、高取宽的 0.86（谷歌那张的比例），
+         *  再受窗口高度限制（缩放 3/4 后要放得下）。 */
+        applyFloatVars() {
+            const scr = window.screen || {};
+            const base = Math.max(300, Math.min(scr.width || 360, scr.height || 360));
+            const room = Math.floor(((window.innerHeight || 360) - 24 * 2) / 0.75);
+            const height = Math.max(220, Math.min(Math.round(base * 0.86), room));
+            const root = document.documentElement;
+            root.style.setProperty('--float-base-w', base + 'px');
+            root.style.setProperty('--float-h', height + 'px');
+        }
+
         syncFloatRect() {
             if (typeof Native.setFloatRect !== 'function') return;
             let rect = [0, 0, 0, 0];
             if (document.body.classList.contains('kb-float')) {
+                this.applyFloatVars();
                 const r = document.getElementById('softKeyboard').getBoundingClientRect();
                 rect = [Math.max(0, Math.floor(r.left)), Math.max(0, Math.floor(r.top)),
                     Math.ceil(r.right), Math.ceil(window.innerHeight || r.bottom)];
