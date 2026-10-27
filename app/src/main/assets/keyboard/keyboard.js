@@ -5833,12 +5833,8 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 else tab.textContent = t(category.label);
                 tab.setAttribute('aria-label', t(category.id === 'recent' ? "最近使用" : category.label));
                 tab.addEventListener('click', () => {
-                    const top = sections[index].el.offsetTop || 0;
-                    if (typeof pages.scrollTo === 'function') {
-                        pages.scrollTo({ top, behavior: 'smooth' });
-                    } else {
-                        pages.scrollTop = top;
-                    }
+                    // 点哪个分类就直接跳到哪个，不做滚动动画（平滑滚动会一路滑过中间的分类）。
+                    pages.scrollTop = sections[index].el.offsetTop || 0;
                 });
                 tabs.push(tab);
                 strip.append(tab);
