@@ -7105,9 +7105,22 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
 
         /** 横屏悬浮小键盘（谷歌输入法式）：横屏且原生允许时，键盘缩成靠右的
          *  圆角卡片、不再顶缩宿主 App；卡片矩形推给原生做可触摸区。 */
+        /** 悬浮诊断：页面眼里的状态（开关、方向、视口、矩形）变化时记一行，进诊断日志。 */
+        floatDiag(tag, extra) {
+            if (!this.touchDiagnostics || typeof Native.diagEvent !== 'function' || !this.token) return;
+            const line = `jsFloat ${tag} on=${document.body.classList.contains('kb-float') ? 1 : 0}` +
+                ` land=${this.landscape ? 1 : 0} opt=${this.floatLandscape ? 1 : 0}` +
+                ` vw=${window.innerWidth} vh=${window.innerHeight}` +
+                ` poll=${this._floatPoll ? 1 : 0} fn=${typeof Native.setFloatRect}${extra ? ' ' + extra : ''}`;
+            if (line === this._floatDiagLast) return;
+            this._floatDiagLast = line;
+            try { Native.diagEvent(line, this.token); } catch (_) { /* diagnostics must not interrupt input */ }
+        }
+
         applyFloatMode() {
             const on = !!(this.landscape && this.floatLandscape);
             document.body.classList.toggle('kb-float', on);
+            this.floatDiag('mode');
             this.syncFloatRect();
             // 悬浮态下轮询对账：键盘窗口隐藏时旋转，视口要等下次显示才更新，且
             // 那时元素尺寸不变、既没有 resize 也没有 ResizeObserver 回调。矩形没变
@@ -7144,6 +7157,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
         syncFloatRect() {
             if (typeof Native.setFloatRect !== 'function') return;
             let rect = [0, 0, 0, 0];
+            this.floatDiag('sync');
             if (document.body.classList.contains('kb-float')) {
                 // 旋转后键盘窗口还没显示时，WebView 的视口仍是旧方向（真机日志：
                 // 推出去的矩形是竖屏尺寸）。视口还不是横的就先不推，等轮询/可见性
@@ -7157,6 +7171,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             const key = rect.join(',');
             if (key === this._floatKey) return;
             this._floatKey = key;
+            this.floatDiag('push', `rect=${key}`);
             this.call(() => Native.setFloatRect(rect[0], rect[1], rect[2], rect[3], this.token));
         }
 
