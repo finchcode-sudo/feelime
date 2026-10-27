@@ -7130,7 +7130,13 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 this._floatPoll = 0;
             }
             if (on && typeof setInterval === 'function') {
-                this._floatPoll = setInterval(() => this.syncFloatRect(), 250);
+                // 每 8 拍（2 秒）强制重推一次：原生对相同矩形直接忽略，成本可忽略；
+                // 万一某次被拒绝也能自愈。
+                let tick = 0;
+                this._floatPoll = setInterval(() => {
+                    tick += 1;
+                    this.syncFloatRect(tick % 8 === 0);
+                }, 250);
             }
         }
 
@@ -7154,7 +7160,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             root.style.setProperty('--float-h', height + 'px');
         }
 
-        syncFloatRect() {
+        syncFloatRect(force) {
             if (typeof Native.setFloatRect !== 'function') return;
             let rect = [0, 0, 0, 0];
             this.floatDiag('sync');
@@ -7169,7 +7175,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                     Math.ceil(r.right), Math.ceil(window.innerHeight || r.bottom)];
             }
             const key = rect.join(',');
-            if (key === this._floatKey) return;
+            if (!force && key === this._floatKey) return;
             this._floatKey = key;
             this.floatDiag('push', `rect=${key}`);
             this.call(() => Native.setFloatRect(rect[0], rect[1], rect[2], rect[3], this.token));
@@ -11637,6 +11643,9 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             }
             // Native orientation wins over the resize heuristic.
             this.floatLandscape = payload.floatLandscape === true;
+            // 握手刷新了令牌：此前被原生静默拒绝的推送要重发（真机日志：推送在令牌刷新空档被拒，
+            // 页面却认为已推送，触摸区一直没生效）。
+            this._floatKey = null;
             if (payload.orientation) {
                 this.helloOrientation = payload.orientation;
                 this.applyOrientation(payload.orientation === 'landscape');
