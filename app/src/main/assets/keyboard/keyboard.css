@@ -3223,3 +3223,8 @@ body.landscape.kb-float #softKeyboard {
     transform: scale(.75);
     transform-origin: right bottom;
 }
+
+/* 编辑卡去掉「输入码 + 位次」整行（太占位置）：只用 CSS 隐藏，字段仍在 DOM 里，
+ * 保存时读到的值不变——新建留空走自动生成码、位次 1；编辑旧条目保留原码和原位次。 */
+#phraseCard .pc-code-label, #phraseCard .pc-code-row { display: none; }
+body.landscape #phraseCard .pc-input { grid-column: 1 / 3; }
