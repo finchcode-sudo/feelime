@@ -10868,8 +10868,35 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
          * card ride over the keyboard top rows (see design §0). */
         placePhraseCard() {
             const card = document.getElementById('phraseCard');
+            const input = document.getElementById('phraseCardInput');
             const kb = document.getElementById('softKeyboard').getBoundingClientRect();
+            // 自适应高度：正文框默认 120px 很高，键盘上方的 band 放不下时
+            // 整张卡会顶到窗口上沿并压住候选栏和首排键（用户实录：挡住输入法
+            // 没法编辑）。先把正文框缩到放得下为止（至少约 2 行），还不够再
+            // 进紧凑态（藏掉输入码小标签、收紧间距）。横屏是网格布局，沿用
+            // 原有的固定尺寸，不在这里动。
+            card.classList.remove('pc-compact');
+            input.style.height = '';
+            input.style.minHeight = '';
             card.style.top = '0px';
+            if (!document.body.classList.contains('landscape')) {
+                const avail = kb.top - 6 - 14;
+                const MIN_INPUT = 52;
+                const setInput = (px) => {
+                    input.style.height = px + 'px';
+                    input.style.minHeight = px + 'px';
+                };
+                if (card.offsetHeight > avail) {
+                    setInput(MIN_INPUT);
+                    if (card.offsetHeight > avail) {
+                        card.classList.add('pc-compact');
+                        setInput(MIN_INPUT);
+                    }
+                    // 剩余空间还给正文框（不超过默认的 120px）。
+                    const spare = avail - card.offsetHeight;
+                    if (spare > 0) setInput(Math.min(120, MIN_INPUT + spare));
+                }
+            }
             const h = card.offsetHeight;
             const top = Math.max(14, kb.top - h - 6);
             card.style.top = top + 'px';

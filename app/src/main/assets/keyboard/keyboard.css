@@ -3108,6 +3108,12 @@ html.theme-light .qs-big { background: var(--key); }
 .pc-rank-value { min-width: 18px; text-align: center; color: var(--text);
     font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .pc-rank-label { font-size: 11px; color: var(--muted); margin-left: 2px; }
+/* 紧凑态（placePhraseCard 在键盘上方空间不够时加上）：藏掉输入码小标签，
+ * 收紧标题与按钮间距，让卡片尽量不压到候选栏和键区。 */
+#phraseCard.pc-compact .pc-code-label { display: none; }
+#phraseCard.pc-compact .pc-head { padding-bottom: 4px; }
+#phraseCard.pc-compact .pc-actions { margin-top: 6px; }
+#phraseCard.pc-compact .pc-btn { min-height: 30px; padding: 5px 0; }
 #comboPopup, #modeMenu, #itemMenu, #confirmCard { border-radius: var(--radius-card); }
 .kb-alt { color: var(--key-subtext); }
 .combo-cell .combo-mod { opacity: 1; }
