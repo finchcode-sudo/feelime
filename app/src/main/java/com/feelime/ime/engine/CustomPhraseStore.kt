@@ -47,7 +47,8 @@ object CustomPhraseStore {
     // 13：builtin-words.tsv 新增「梁文锋」「蒋万安」。
     // 14：builtin-words.tsv 新增「雾岛奈津美」。
     // 15：builtin-words.tsv 新增「米莱狄」。
-    private const val DERIVE_VERSION = 15
+    // 16：builtin-words.tsv 新增「蚩奼」。
+    private const val DERIVE_VERSION = 16
 
     private const val T9_DIGITS = "22233344455566677778889999"
 
