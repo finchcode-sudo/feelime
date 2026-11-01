@@ -45,7 +45,8 @@ object CustomPhraseStore {
     // 7：词库本体（导入/自造/内置）额外落 T9 数字码行——九宫格的按键序列是
     // 数字，字母码在 T9 下命不中。
     // 13：builtin-words.tsv 新增「梁文锋」「蒋万安」。
-    private const val DERIVE_VERSION = 13
+    // 14：builtin-words.tsv 新增「雾岛奈津美」。
+    private const val DERIVE_VERSION = 14
 
     private const val T9_DIGITS = "22233344455566677778889999"
 
