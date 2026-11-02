@@ -7839,6 +7839,54 @@ test('english suggestions ride the assoc bar: click replaces the prefix via the 
     equal(world.native.of('commitAssoc').length, 1, 'later chinese assoc goes back to commitAssoc');
 });
 
+test('paste chip: latest copy shows in the idle bar, tap pastes it and the chip retires', {since: '3.33.0'}, () => {
+    const world = fresh({ mode: 'pinyin' });
+    world.engineState({ phase: 'READY', mode: 'pinyin', revision: 1, composing: '', rawInput: '',
+        candidates: [], hasNextPage: false });
+    const chips = () => [...world.$('candidates').children]
+        .filter(b => (b.className || '').split(/\s+/).includes('clip'));
+    equal(chips().length, 0, 'no chip before any copy');
+    world.clipChip({ text: 'hello world', sensitive: false, ttlMs: 60000 });
+    equal(chips().length, 1, 'a fresh copy shows one chip');
+    assert(chips()[0].textContent.includes('hello world'), 'chip shows the copied text');
+    assert(world.$('setupButton').hidden, 'the chip yields the toolbar like assoc words');
+    assert(!world.$('composeClear').hidden, 'the chip has an ×');
+    chips()[0].click();
+    equal(world.native.of('commitClipChip').length, 1, 'tap pastes through the native bridge');
+    equal(chips().length, 0, 'the chip is gone after the paste');
+    assert(!world.$('setupButton').hidden, 'toolbar restored after the paste');
+});
+
+test('paste chip: sensitive copies are masked, native can retire it, assoc words take priority', {since: '3.33.0'}, () => {
+    const world = fresh({ mode: 'pinyin' });
+    world.engineState({ phase: 'READY', mode: 'pinyin', revision: 1, composing: '', rawInput: '',
+        candidates: [], hasNextPage: false });
+    const chips = () => [...world.$('candidates').children]
+        .filter(b => (b.className || '').split(/\s+/).includes('clip'));
+    world.clipChip({ text: 'hunter2-password', sensitive: true, ttlMs: 60000 });
+    equal(chips().length, 1, 'sensitive copy still gets a chip');
+    assert(!chips()[0].textContent.includes('hunter2'), 'its label is masked');
+    // 联想词优先，退场后芯片回来。
+    world.assoc(['的', '是']);
+    equal(chips().length, 0, 'assoc words take the bar over the chip');
+    equal(world.$('candidates').children.length, 2, 'assoc words render');
+    world.assoc([]);
+    equal(chips().length, 1, 'chip returns when assoc words retire');
+    // 粘贴（任何途径）后原生推空收走。
+    world.clipChip({ text: '' });
+    equal(chips().length, 0, 'native clear retires the chip');
+    assert(!world.$('setupButton').hidden, 'toolbar restored when the chip retires');
+    // 已过期的不显示。
+    world.clipChip({ text: 'late', sensitive: false, ttlMs: 0 });
+    equal(chips().length, 0, 'an expired chip is not shown');
+    // × 收掉芯片。
+    world.clipChip({ text: 'again', sensitive: false, ttlMs: 60000 });
+    equal(chips().length, 1, 'new copy brings it back');
+    world.tap(world.$('composeClear'));
+    equal(chips().length, 0, '× dismisses the chip');
+    equal(world.native.of('clearComposing').length, 0, '× on a chip must not clear any composition');
+});
+
 test('english suggestions are not swallowed by backspace-clears-assoc (issue #46 option)', {since: '3.73.18'}, () => {
     const world = fresh({ mode: 'direct' });
     world.hello({ backspaceAssocOn: true });

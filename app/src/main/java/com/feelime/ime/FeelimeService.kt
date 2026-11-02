@@ -263,6 +263,14 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
     private var englishTypedForward = false
     private var englishSkipLearn = false
 
+    /** 候选条粘贴芯片：最近一次复制的文字，复制后一分钟内显示；粘贴（芯片、
+     *  面板、宿主菜单）后消失。lastClipChipStamp 防止同一条 clip 再次聚焦
+     *  时重复弹出（含已粘贴消失的）。 */
+    private var clipChipText: String? = null
+    private var lastClipChipStamp = -1L
+    private val clipChipExpire = Runnable { clearClipChip() }
+    private val clipChipPasteCheck = Runnable { checkClipChipPasted() }
+
     // Bridge handshake state (design section 5.3). A fresh random token is
     // minted per page load; every call must carry the live token.
     // @Volatile：#34 手势桥（backspaceN/backspaceRestoreOne）在桥线程
@@ -796,6 +804,9 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         // re-capture) pushes immediately: an open clipboard panel
         // hot-refreshes instead of waiting for the next getClipboard.
         clipboardStore.onChanged = { main.post { pushClipboard() } }
+        clipboardStore.onFreshClip = { text, sensitive, ageMs, stamp ->
+            main.post { showClipChip(text, sensitive, ageMs, stamp) }
+        }
         // Panel-side freshness: mutations made in SetupActivity must reach an
         // open favorites tab on the keyboard . Removals through the
         // panel push themselves; this listener covers the Setup->panel
@@ -1430,6 +1441,8 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         if (::coordinator.isInitialized && !panelInputActive) {
             coordinator.onEditorSelectionChanged(oldSelStart, oldSelEnd, newSelStart, newSelEnd)
         }
+        // 粘贴芯片：光标前出现了芯片文字就算粘贴过了，芯片消失。
+        scheduleClipChipPasteCheck()
         // 联想跟着编辑框真实内容走（光标前文本变了就重算）：退格、英文/符号
         // 直出、粘贴、点选移动光标都不经过中文 commit 事件，不在这里兜底的话
         // 联想词会一直停在上一次中文上屏的后继上。组合区（candidatesStart>=0）
@@ -2378,6 +2391,44 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
     }
 
     private fun clearAssociation() = pushAssoc(emptyList())
+
+    private fun showClipChip(text: String, sensitive: Boolean, ageMs: Long, stamp: Long) {
+        if (stamp != 0L && stamp == lastClipChipStamp) return
+        val ttl = CLIP_CHIP_WINDOW_MS - ageMs
+        if (ttl <= 0L || text.isBlank() || text.length > CLIP_CHIP_MAX_CHARS) return
+        lastClipChipStamp = stamp
+        clipChipText = text
+        main.removeCallbacks(clipChipExpire)
+        main.postDelayed(clipChipExpire, ttl)
+        val payload = JSONObject()
+            .put("text", text).put("sensitive", sensitive).put("ttlMs", ttl)
+        evaluate("window.Feelime && window.Feelime.onClipChip && window.Feelime.onClipChip($payload)")
+    }
+
+    private fun clearClipChip() {
+        main.removeCallbacks(clipChipExpire)
+        main.removeCallbacks(clipChipPasteCheck)
+        if (clipChipText == null) return
+        clipChipText = null
+        evaluate("window.Feelime && window.Feelime.onClipChip && window.Feelime.onClipChip({\"text\":\"\"})")
+    }
+
+    private fun scheduleClipChipPasteCheck() {
+        if (clipChipText == null) return
+        main.removeCallbacks(clipChipPasteCheck)
+        main.postDelayed(clipChipPasteCheck, CLIP_CHIP_PASTE_CHECK_DELAY_MS)
+    }
+
+    /** 光标前的文字正好是芯片文字 = 已经粘贴过了（芯片/面板/宿主菜单都算）。
+     *  密码框、终端框不读编辑框内容，这两处只能靠点芯片或到期消失。 */
+    private fun checkClipChipPasted() {
+        val text = clipChipText ?: return
+        if (panelInputActive) return
+        val info = currentInputEditorInfo ?: return
+        if (isSensitiveEditor(info) || isTerminalLikeEditor(info)) return
+        val before = currentInputConnection?.getTextBeforeCursor(text.length, 0)?.toString() ?: return
+        if (before == text) clearClipChip()
+    }
 
     private val associationRefresh = Runnable { refreshAssociationFromEditor() }
 
@@ -3789,6 +3840,15 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
             }
         }
 
+        /** 点候选条上的粘贴芯片：把最近一次复制的文字粘进去，芯片随即消失。 */
+        @JavascriptInterface
+        fun commitClipChip(token: String) = guarded(token, limited = false) {
+            val text = clipChipText ?: return@guarded
+            if (panelInputActive) return@guarded
+            clearClipChip()
+            coordinator.pasteExternal(text)
+        }
+
         /** 英文补全点选：把光标前的单词前缀 [prefix] 换成「词 + 空格」并学一次。
          *  键盘条上的候选可能是上一键的残影，所以先按当前光标前文本校验前缀，
          *  对不上就忽略（条很快会被新一轮刷新替换）。 */
@@ -4635,6 +4695,10 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         const val LOCAL_HOST = "feelime.local"
         /** 光标变化后重算联想的合并延迟（连续退格/拖光标只算最后一次）。 */
         const val ASSOCIATION_REFRESH_DELAY_MS = 60L
+        /** 候选条粘贴芯片：存活时间、可显示的最大字数（同粘贴上限）、粘贴检测延迟。 */
+        const val CLIP_CHIP_WINDOW_MS = 60_000L
+        const val CLIP_CHIP_MAX_CHARS = 2000
+        const val CLIP_CHIP_PASTE_CHECK_DELAY_MS = 80L
         /** Re-derive the JS row budget from the settled view geometry. */
         const val HEIGHT_SETTLED_JS =
             "window.Feelime && window.Feelime.applyHeightNow && window.Feelime.applyHeightNow()"

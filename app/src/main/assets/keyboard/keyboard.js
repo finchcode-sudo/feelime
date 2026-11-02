@@ -1823,6 +1823,9 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             // 候选时光标前的单词前缀，点选走 commitEnglishSuggestion。
             this.assocKind = '';
             this.assocPrefix = '';
+            // 粘贴芯片（最近一次复制的一分钟）：{label, until}，onClipChip 驱动。
+            this.clipChip = null;
+            this.clipChipTimer = null;
             // 联想让位态退格清联想（issue #46）：hello 回读，默认关。
             this.backspaceAssocOn = false;
             // 万象 / 键功能引导（issue #45）：hello 回读，默认关。
@@ -2334,6 +2337,11 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                     this.renderCandidates(this.lastEngineState || {});
                     return;
                 }
+                // 粘贴芯片的 × = 收掉芯片（本次复制不再弹）。
+                if (this.clipChipActive() && !this.composing) {
+                    this.onClipChip({ text: '' });
+                    return;
+                }
                 this.clearComposing();
             });
             document.getElementById('composeExpand').addEventListener('click', () => this.setExpanded(true));
@@ -2634,18 +2642,18 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             this.cancelTouches();
             if (layoutName === 'handwriting') {
                 this.t9SymBar = false;
-                if (!this.composing) this.setToolbarYield(this.assocWords.length > 0);
+                if (!this.composing) this.setToolbarYield(this.barWordsActive());
                 return this.renderHandwriting();
             }
             if (layoutName === 't9') {
                 this.t9SymBar = false;
                 // 换键面=离开符号行：工具栏让位必须解除，否则隐藏的快捷
                 // 按钮没有恢复入口（引擎事件只是兜底）。
-                if (!this.composing) this.setToolbarYield(this.assocWords.length > 0);
+                if (!this.composing) this.setToolbarYield(this.barWordsActive());
                 return this.mode === 'stroke' ? this.renderStroke() : this.renderT9();
             }
             this.t9SymBar = false;
-            if (!this.composing) this.setToolbarYield(this.assocWords.length > 0);
+            if (!this.composing) this.setToolbarYield(this.barWordsActive());
             const layout = LAYOUTS[layoutName] || LAYOUTS.qwerty;
             // keyAltHint 需要知道当前键面（dp14 显示韵母小字而非符号）。
             this.lettersLayout = layoutName;
@@ -9913,7 +9921,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             // 出现即让位（符号行是暂态选择面，不与候选池共存）。
             if (this.t9SymBar) {
                 if (state.composing || (this.mode !== 't9' && this.mode !== 'stroke') ||
-                    (this.expandCandidates || []).length || this.assocWords.length) {
+                    (this.expandCandidates || []).length || this.barWordsActive()) {
                     this.t9RestoreBarChrome(state.composing);
                 } else {
                     this.renderT9SymbolBar();
@@ -9925,7 +9933,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             // 联想的出现与消失都在这条统一兜住。组合/语音态不动（各由
             // updateComposing 管）。
             if (!state.composing && this.voiceState === 'idle') {
-                this.setToolbarYield(this.assocWords.length > 0);
+                this.setToolbarYield(this.barWordsActive());
             }
             const bar = document.getElementById('candidates');
             // Full repaints would clamp scrollLeft back to 0 mid-drag - the
@@ -9945,6 +9953,19 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                     button.addEventListener('mousedown', event => event.preventDefault());
                     bar.append(button);
                 });
+                bar.scrollLeft = held;
+                return;
+            }
+            // 粘贴芯片：最近一次复制的文字，复制后一分钟内显示在空闲的候选条
+            // 上（联想词/引擎候选优先，它们退场后回来），粘贴后原生推空收走。
+            if (!(this.expandCandidates || []).length && !state.composing &&
+                this.clipChipActive()) {
+                const chip = document.createElement('button');
+                chip.className = 'candidate assoc clip';
+                chip.textContent = this.clipChip.label;
+                chip.addEventListener('click', () => this.commitClipChip());
+                chip.addEventListener('mousedown', event => event.preventDefault());
+                bar.append(chip);
                 bar.scrollLeft = held;
                 return;
             }
@@ -10086,7 +10107,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             if ((this.mode === 't9' || this.mode === 'stroke') &&
                 this.t9BarChrome && !this.composing && !voiceBusy) {
                 this.setToolbarYield(true);
-            } else if ((this.assocWords || []).length && !voiceBusy) {
+            } else if (this.barWordsActive() && !voiceBusy) {
                 // 中文联想（用户定稿）：有联想词时工具栏全部让位（含
                 // mic）仅留 ×。renderCandidates 会兜住引擎事件路径，这
                 // 条覆盖 onNativeState 等不渲染候选条的刷新。
@@ -11897,6 +11918,50 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             this.renderCandidates(this.lastEngineState || {});
         }
 
+        /** 粘贴芯片（最近一次复制，一分钟内）：原生在新复制时推 {text, sensitive,
+         *  ttlMs}，粘贴后/到期推 {text:''} 收走。敏感 clip 的标签打码。 */
+        onClipChip(payload) {
+            const text = payload && typeof payload.text === 'string' ? payload.text : '';
+            if (this.clipChipTimer) {
+                clearTimeout(this.clipChipTimer);
+                this.clipChipTimer = null;
+            }
+            if (!text.trim()) {
+                this.clipChip = null;
+            } else {
+                const ttl = Math.max(0, Number(payload.ttlMs) || 0);
+                const one = text.replace(/\s+/g, ' ').trim();
+                const shown = payload.sensitive ? '••••••'
+                    : (one.length > 24 ? one.slice(0, 24) + '…' : one);
+                this.clipChip = { label: '📋 ' + shown, until: Date.now() + ttl };
+                this.clipChipTimer = setTimeout(() => {
+                    this.clipChip = null;
+                    this.clipChipTimer = null;
+                    this.renderCandidates(this.lastEngineState || {});
+                }, ttl);
+            }
+            if (this.variantReplaying) return;
+            this.renderCandidates(this.lastEngineState || {});
+        }
+
+        clipChipActive() {
+            return !!(this.clipChip && this.clipChip.until > Date.now());
+        }
+
+        /** 候选条上有联想词或粘贴芯片：工具栏让位、× 可用。 */
+        barWordsActive() {
+            return (this.assocWords || []).length > 0 || this.clipChipActive();
+        }
+
+        /** 点粘贴芯片：原生粘贴最近一次复制并收走芯片。 */
+        commitClipChip() {
+            this.clipChip = null;
+            this.renderCandidates(this.lastEngineState || {});
+            if (typeof Native !== 'undefined' && typeof Native.commitClipChip === 'function') {
+                Native.commitClipChip(this.token);
+            }
+        }
+
         /** 联想词点击：原生写入编辑器并推下一轮联想（连续联想）。 */
         commitAssocWord(word) {
             const english = this.assocKind === 'english';
@@ -12271,6 +12336,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             catch (e) { window.__diagErr = String(e && e.message || e).slice(0, 60); throw e; }
         },
         onAssoc: payload => keyboard.onAssoc(payload),
+        onClipChip: payload => keyboard.onClipChip(payload),
         onNativeState: payload => keyboard.onNativeState(payload),
         onInkCandidates: payload => keyboard.onInkCandidates(payload),
         onEditorInfo: payload => keyboard.onEditorInfo(payload),

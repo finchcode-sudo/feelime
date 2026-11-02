@@ -151,15 +151,37 @@ class ClipboardStore(private val context: Context) {
             return
         }
         imageNote = ""
-        captureText(item.coerceToText(context)?.toString())
+        val sensitiveClip =
+            clip.description.extras?.getBoolean("android.content.extra.IS_SENSITIVE", false) == true
+        val stamp = clip.description.timestamp
+        captureText(item.coerceToText(context)?.toString(), sensitiveClip, clipAgeMs(stamp), stamp)
     }
 
-    private fun captureText(text: String?) {
+    /** 刚复制的文字 clip（一分钟内）：键盘在候选条给「粘贴芯片」。参数依次是
+     *  文本、是否带敏感标记、复制至今的毫秒数、clip 时间戳（去重标识）。 */
+    var onFreshClip: ((String, Boolean, Long, Long) -> Unit)? = null
+
+    /** ClipDescription.timestamp 在不同系统上有 elapsedRealtime 和 epoch 两种
+     *  口径，按数量级分辨；读不到返回 Long.MAX_VALUE（当作很久以前）。 */
+    private fun clipAgeMs(stamp: Long): Long {
+        if (stamp <= 0L) return Long.MAX_VALUE
+        val now = if (stamp > 1_000_000_000_000L) System.currentTimeMillis()
+        else android.os.SystemClock.elapsedRealtime()
+        return (now - stamp).coerceAtLeast(0L)
+    }
+
+    private fun captureText(
+        text: String?,
+        sensitive: Boolean = false,
+        ageMs: Long = Long.MAX_VALUE,
+        stamp: Long = 0L,
+    ) {
         if (text.isNullOrEmpty()) return
         val fingerprint = fingerprintOf(text)
         if (suppress.shouldSuppress(fingerprint)) return
         record(text)
         suppress.onRecorded()
+        if (ageMs < FRESH_CLIP_WINDOW_MS) onFreshClip?.invoke(text, sensitive, ageMs, stamp)
     }
 
     private fun imageMimeOf(clip: android.content.ClipData): String? {
@@ -342,6 +364,8 @@ class ClipboardStore(private val context: Context) {
     private companion object {
         const val KEY = "items"
         const val SUPPRESS_KEY = "suppress_fingerprint"
+        /** 复制后多久内算「刚复制」，候选条粘贴芯片的存活时间。 */
+        const val FRESH_CLIP_WINDOW_MS = 60_000L
         // Design budget: 64KiB total minus ~8KiB metadata headroom, counting
         // text UTF-8 bytes only.
         const val TEXT_BUDGET_BYTES = 56 * 1024

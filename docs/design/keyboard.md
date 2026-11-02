@@ -364,6 +364,21 @@ update/），完整设置页在 `app/src/main/assets/settings/`。
 
 
 
+### 3.6a 候选条粘贴芯片（2026-11-02）
+
+最近一次复制的文字，复制后一分钟内显示在空闲的候选条上（工具栏让位、× 可
+收掉），点它直接粘贴；粘贴后消失。
+
+- **来源**：`ClipboardStore.captureCurrent` 记录成功后，clip 年龄（
+  `ClipDescription.timestamp`，兼容 elapsedRealtime/epoch 两种口径，读不到
+  按很久以前）< 60s 才回调 `onFreshClip`——键盘收起时复制、聚焦时补录也
+  按真实复制时间算剩余时长；`lastClipChipStamp` 防同一条 clip 再次聚焦重复弹出。
+- **显示**：`onClipChip({text, sensitive, ttlMs})`；带敏感标记（密码管理器）
+  的标签打码；联想词/引擎候选优先，退场后芯片回来；≤2000 字。
+- **消失**：点芯片（`commitClipChip`，原生 `pasteExternal`）、到期、× 、
+  或光标前文字恰好等于芯片文字（面板、宿主菜单粘贴都算；密码框/终端框不
+  读编辑框，只能靠点芯片/到期）。
+
 ### 3.6 剪贴板采集生命周期
 
 - `onStartInput` 按 `!isSensitiveEditor()` 置位采集 flag；`onFinishInputView`
@@ -431,7 +446,7 @@ JS→Native（全部 token 门控 + 输入校验；面板 id `[0-9a-f]{1,16}`、
 | --- | --- |
 | 文本 | `key`、`commitText`、`backspace`、`enter`、`space`、`moveCursor`、`clearComposing`、`setComposition`、`keyFeedback`（按键声/振动，§6.1） |
 | 候选 | `chooseCandidate`、`pageNext`、`pagePrevious`、`deleteCandidate`、`deleteHighlightedCandidate` |
-| 面板 | `getClipboard`、`removeClipboard`、`clearClipboard`、`getFavorites`、`favoritesAdd/Update/Remove/Move`、`panelInput`、`panelFlush`、`panelSelection`、`commitAssoc`（联想词点击，§3a）、`commitEnglishSuggestion`（英文补全点选，association.md §3a） |
+| 面板 | `getClipboard`、`removeClipboard`、`clearClipboard`、`getFavorites`、`favoritesAdd/Update/Remove/Move`、`panelInput`、`panelFlush`、`panelSelection`、`commitAssoc`（联想词点击，§3a）、`commitEnglishSuggestion`（英文补全点选，association.md §3a）、`commitClipChip`（点候选条粘贴芯片，§3.6a） |
 | 编辑器（单手侧条，§2.8） | `editorCursor`（方向键）、`editorAction`（全选/剪切/复制/粘贴） |
 | 控制键 | `keyEvent`、`keyEventPhysical`（§11，keycode 白名单 + meta 位白名单 + 限流） |
 | 语音 | `startVoice`、`stopVoice`、`cancelVoice`（启停经状态事件） |
