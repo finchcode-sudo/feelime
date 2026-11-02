@@ -4954,7 +4954,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             const cells = [
                 ...letters.map(ch => ({ char: ch, literal: true })),
                 { char: syms[0], literal: true },
-                { char: '·', noop: true },
+                { char: '\u00a0', noop: true },
                 { char: syms[1], literal: true },
                 ...letters.map(ch => ({ char: ch.toUpperCase(), literal: true })),
             ].filter(cell => cell.char);
