@@ -2769,7 +2769,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                     const one = document.createElement('button');
                     one.className = 'kb-key t9-key';
                     one.dataset.key = '1';
-                    one.innerHTML = '<span class="t9-sup">1</span><span class="t9-group">@#.</span>';
+                    one.innerHTML = '<span class="t9-group">@#.</span>';
                     one.addEventListener('click', () => (this.composing ? this.call(() => Native.key("'", this.token)) : this.t9SymbolBar()));
                     this.bindTouch(one);
                     place(one, coords[digit][0], coords[digit][1]);
@@ -2816,10 +2816,10 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             // 重输下方：字面 0 键（原 emoji 入口；emoji 仍可经 123 数字板
             // 的 emoji 切换与工具栏 emoji 工具进入）。直发走 sendSymbol——
             // 进引擎会成为候选选择器，字面 0 上不了屏（同空格上滑 0）。
-            const zeroKey = this.specialKey('t9zero', '0',
-                () => this.sendSymbol('0'), 'kb-special');
-            zeroKey.setAttribute('aria-label', '0');
-            place(zeroKey, 3, 5);
+            const emojiKey = this.specialKey('t9emoji', '😊',
+                () => { this.emojiView = true; this.showNumpad(); }, 'kb-special');
+            emojiKey.setAttribute('aria-label', t("表情"));
+            place(emojiKey, 3, 5);
             const r4 = document.createElement('div');
             r4.className = 't9-r4';
             r4.append(this.specialKey('symbols', '123',
@@ -2831,10 +2831,6 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             space.dataset.key = '0';
             space.classList.add('t9-wide');
             space.classList.add('t9-space');
-            const zero = document.createElement('span');
-            zero.className = 't9-sup';
-            zero.textContent = '0';
-            space.append(zero);
             r4.append(space);
             // 中英键同样压成 2/3 键宽——cnEnKey 自带的 kb-wide-1_15 会被
             // .t9-r4 .kb-key{flex:3} 盖掉，不补窄类会吃掉空格的宽度
@@ -2903,15 +2899,12 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             const hint = document.createElement('span');
             hint.className = 't9-hint';
             hint.textContent = (def.syms || []).join('');
-            const sup = document.createElement('span');
-            sup.className = 't9-sup';
-            sup.textContent = digit;
             const group = document.createElement('span');
             group.className = 't9-group';
             // t() 过一遍让「分词」跟界面语言走（其余部件字形无翻译条目，
             // 原样返回）；模块级表不能预求值，locale 切换后重渲染即更新。
             group.textContent = t(def.main);
-            button.append(hint, sup, group);
+            button.append(hint, group);
             button.addEventListener('click', () => this.strokeActivate(digit));
             this.bindTouch(button);
             return button;
@@ -3556,13 +3549,10 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             const hint = document.createElement('span');
             hint.className = 't9-hint';
             hint.textContent = (LAYOUTS.t9.keySymbols[digit] || []).join('');
-            const sup = document.createElement('span');
-            sup.className = 't9-sup';
-            sup.textContent = digit;
             const group = document.createElement('span');
             group.className = 't9-group';
             group.textContent = (LAYOUTS.t9.alts[digit] || '').toUpperCase();
-            button.append(hint, sup, group);
+            button.append(hint, group);
             button.addEventListener('click', () =>
                 this.call(() => Native.key(digit, this.token)));
             this.bindTouch(button);
@@ -4877,12 +4867,8 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 // T9 的字面 0 消歧不再抢道——否则撤销会先落一个 0
                 // （codex round-3 P2）。
                 if (this.voiceHold) return true;
+                // 九宫格不再有数字功能：竖滑吞掉，横滑落回 scrub。
                 if (!vertical) return false;
-                if (dy < 0) {
-                    // 上滑=字面 0（右上角标提示）。
-                    this.sendSymbol('0');
-                    this.showFlick(button, dy, dx);
-                }
                 return true;
             }
             const key = button.dataset.key;
@@ -4891,30 +4877,17 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             // 方向无语义，返回 true 吞掉，不落回通用分支把 CN_ALTS 符号
             // /大写发出去。空格（0）已被上面的 spaceKey 分支处理。
             if (this.mode === 'stroke') {
-                if (/^[1-9]$/.test(key)) {
-                    if (vertical && dy < 0) {
-                        this.sendSymbol(key);
-                        this.showFlick(button, dy, dx);
-                    }
-                    return true;
-                }
+                if (/^[1-9]$/.test(key)) return true;
                 return false;
             }
             // 1 键（@#.）：上滑=字面 1；下滑/横滑无语义（符号行走点按/长按）。
-            if (this.mode === 't9' && key === '1') {
-                if (vertical && dy < 0) {
-                    this.sendSymbol('1');
-                    this.showFlick(button, dy, dx);
-                }
-                return true;
-            }
+            if (this.mode === 't9' && key === '1') return true;
             if (this.mode !== 't9' || !/^[2-9]$/.test(key)) return false;
             const letters = (LAYOUTS.t9.alts[key] || '').split('');
             if (vertical) {
                 if (dy < 0) {
-                    // 上滑=字面数字，commitText 旁路（进引擎会成为
-                    // 候选选择器，字面数字永远上不了屏）。
-                    this.sendSymbol(key);
+                    // 上滑无语义（九宫格不再有数字功能）。
+                    return true;
                 } else if (T9_SPLIT[key]) {
                     // 7/9 下滑=拆分浮层：下左/下右继续滑选 q/r、x/y。
                     // initialX=越过阈值那一刻的手指 x——直接松手也按
@@ -4981,7 +4954,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             const cells = [
                 ...letters.map(ch => ({ char: ch, literal: true })),
                 { char: syms[0], literal: true },
-                { char: key, literal: true },
+                { char: '·', noop: true },
                 { char: syms[1], literal: true },
                 ...letters.map(ch => ({ char: ch.toUpperCase(), literal: true })),
             ].filter(cell => cell.char);
@@ -5035,7 +5008,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 item.textContent = def.char;
                 // send：显示字符与提交值分离（笔画中格显示数字、发部件
                 // 编码）；缺省提交显示字符本身。
-                return { item, char: def.char, send: def.send, literal: !!def.literal, cx: 0, cy: 0 };
+                return { item, char: def.char, send: def.send, literal: !!def.literal, noop: !!def.noop, cx: 0, cy: 0 };
             };
             const items = [];
             if (opts.grid) {
@@ -5347,7 +5320,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             // 原样落（数字格也字面落 editor——issue #62）。拼音里确认字母
             // 由滑动手势承担，不经弹层。
             if (popup?.enginePath) {
-                if (!popup.selected) return;
+                if (!popup.selected || popup.selected.noop) return;
                 if (popup.selected.literal) {
                     this.sendSymbol(popup.selected.char);
                 } else if (this.mode === 'stroke' && popup.key !== '7') {

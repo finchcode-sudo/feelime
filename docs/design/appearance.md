@@ -101,7 +101,7 @@
 
 - 左列条格（`.t9-side-cell`）= `--special` 表面 + `--text`，声母前缀
   （`.t9-syl-pre`）用 `--key-subtext` 置灰；符号键沿用 kb-special 灰。
-- 角标（`.t9-sup`：字母组数字、空格的 0）= 10px `--key-subtext`，
+- 角标（`.t9-sup`：T9/笔画已不再使用，样式保留）= 10px `--key-subtext`，
   与 qwerty 键角标同语言；主字形 `.t9-group` 沿用 `.kb-main` 字号体系。
 - 浮层（T9 长按三行 `.t9-grid3`，含字母/符号·数字/大写）沿用
   `#keyPopup`/`.kp-item` 卡片语言；选中格 `--accent` 填充。

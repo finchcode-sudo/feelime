@@ -4455,17 +4455,15 @@ test('t9 renders the five-column grid and selects via the menu', {since: '3.35.0
     // 分词键不再进 T9——9426 类切分歧义交给引擎音节图与音节候选条。
     assert(world.document.getElementById('t9Strip'), 'side strip present');
     assert(world.document.querySelector('[data-role="t9clear"]'), '重输 key present');
-    assert(world.document.querySelector('[data-role="t9zero"]'), '0 key present');
-    assert(!world.document.querySelector('[data-role="t9emoji"]'), 'emoji key replaced by 0');
+    assert(world.document.querySelector('[data-role="t9emoji"]'), 'emoji key present');
+    assert(!world.document.querySelector('[data-role="t9zero"]'), 'no digit 0 key');
+    assert(world.document.querySelectorAll('.t9-grid .t9-sup').length === 0, 'no digit corner badges');
     assert(!world.document.querySelector('[data-role="sep"]'), 'no qwerty separator on t9');
     // mic 挂 data-key=0：上滑字面 0 + 横滑 scrub 的手势选择器依赖
     // （T9 下唯一保留 scrub 的键）。
     equal(world.$('spaceKey').dataset.key, '0', 'mic carries data-key 0');
-    // 右上角 0 角标提示上滑字面 0；长按圆点由 .t9-space 的 CSS 挪到左上。
     assert(world.$('spaceKey').classList.contains('t9-space'),
         'space marked for the corner-dot swap');
-    assert([...world.$('spaceKey').querySelectorAll('.t9-sup')]
-        .some(s => s.textContent === '0'), 'space shows the 0 badge');
     // 菜单可选。
     const world2 = fresh();
     world2.touchDown(world2.$('modeToggle'));
@@ -8149,52 +8147,19 @@ test('t9 long-press popup: letters/symbols land literally, digit feeds the engin
     equal(keys2[keys2.length - 1].args[0], '2', 'release on the digit cell feeds the wildcard');
 });
 
-test('t9 long-press digit lands literally with composing + slide-back (#62)', {since: '3.73.42'}, () => {
-    // 新规则专测：不拖松手 = 预选数字格，字面落 editor（#62 用户裁定：
-    // 旧规则「与点按同义、通配进引擎」让长按选数字形同直接按键）。
+test('t9 long-press popup has no digit: release in place types nothing', {since: '3.73.68'}, () => {
     const world2 = fresh({ mode: 't9' });
     world2.engineState({ phase: 'READY', mode: 't9', revision: 1, composing: '', rawInput: '',
         candidates: [], hasNextPage: false });
     const two2 = world2.key('2');
     world2.touchDown(two2);
     world2.clock.advance(360);
-    const keys2Before = world2.native.of('key').length;
+    const texts = [...world2.document.querySelectorAll('.kp-item')].map(i => i.textContent);
+    assert(!texts.includes('2'), 'no digit cell in the popup');
+    const before = world2.native.of('commitText').length + world2.native.of('key').length;
     world2.touchUp(two2);
-    const commits2 = world2.native.of('commitText').map(c => c.args[0]);
-    equal(commits2[commits2.length - 1], '2', 'digit cell lands literally');
-    equal(world2.native.of('key').length, keys2Before,
-        'the digit never feeds the engine');
-    // 已有组合时长按选数字：先落现有组合再插数字（与字母/符号 literal
-    // 同通道语义——TextInputCoordinator 的 commitText 处理）。
-    const worldC = fresh({ mode: 't9' });
-    worldC.engineState({ phase: 'COMPOSING', mode: 't9', revision: 1,
-        composing: 'ni', rawInput: '64', candidates: [], hasNextPage: false });
-    const fiveC = worldC.key('5');
-    worldC.touchDown(fiveC);
-    worldC.clock.advance(360);
-    worldC.touchUp(fiveC);
-    const commitsC = worldC.native.of('commitText').map(c => c.args[0]);
-    assert(commitsC.includes('5'), 'composing-state digit still lands literally');
-    // 滑离卡片再滑回数字格松手 = 恢复选中、字面落（相对跟手全程可逆）。
-    const worldB = fresh({ mode: 't9' });
-    worldB.engineState({ phase: 'READY', mode: 't9', revision: 1, composing: '', rawInput: '',
-        candidates: [], hasNextPage: false });
-    worldB.document.getElementById('keyPopup').getBoundingClientRect =
-        () => ({ left: 0, top: 0, right: 500, bottom: 400, width: 500, height: 400 });
-    const sevenB = worldB.key('7');
-    worldB.touchDown(sevenB, 20, 20);
-    worldB.clock.advance(360);
-    // 滑出卡片（虚拟光标越过底边 400）→ 取消态；滑回中轴 → 恢复中格。
-    // 滑动会重建格子 DOM，滑回后必须重新查询（旧引用上断言必假失败）。
-    worldB.move(sevenB, 20, 20 + 382);
-    assert(worldB.$('keyPopupCancelTip').classList.contains('show'), 'dragged out: cancel tip');
-    worldB.move(sevenB, 20, 20);
-    const backNow = [...worldB.document.querySelectorAll('.kp-item')];
-    assert(backNow.find(i => i.textContent === '7').classList.contains('sel'),
-        'back on the digit cell');
-    worldB.touchUp(sevenB, 20, 20);
-    const commitsB = worldB.native.of('commitText').map(c => c.args[0]);
-    equal(commitsB[commitsB.length - 1], '7', 'slide-out-and-back digit lands literally');
+    equal(world2.native.of('commitText').length + world2.native.of('key').length, before,
+        'release on the placeholder cell inputs nothing');
 });
 
 test('t9 popup letters land literally with case preserved (3.40.0)', {since: '3.39.0'}, () => {
@@ -8231,18 +8196,19 @@ test('t9 popup letters land literally with case preserved (3.40.0)', {since: '3.
         'popup letters never enter the engine');
 });
 
-test('t9 letter-key flicks: literal digit up, engine letters down/left/right', {since: '3.35.0'}, () => {
+test('t9 letter-key flicks: up dead, engine letters down/left/right', {since: '3.35.0'}, () => {
     const world = fresh({ mode: 't9' });
     world.engineState({ phase: 'READY', mode: 't9', revision: 1, composing: '', rawInput: '',
         candidates: [], hasNextPage: false });
     const four = world.key('4');
-    // 上滑=字面数字：commitText 旁路（Native.key 会把它喂成候选选择器）。
+    // 上滑：九宫格不再有数字功能，什么都不发。
+    const upBefore = world.native.of('commitText').length + world.native.of('key').length;
     world.touchDown(four, 20, 20);
     world.move(four, 20, -30);
     world.touchUp(four);
     world.clock.advance(2);
-    equal(world.native.of('commitText').slice(-1)[0].args[0], '4',
-        'up-flick commits the literal digit');
+    equal(world.native.of('commitText').length + world.native.of('key').length, upBefore,
+        'up-flick sends nothing');
     // 下滑=中间字母进引擎。
     world.touchDown(four, 20, 20);
     world.move(four, 20, 70);
@@ -8265,7 +8231,7 @@ test('t9 letter-key flicks: literal digit up, engine letters down/left/right', {
     equal(world.native.of('key').slice(-1)[0].args[0], '4', 'tap feeds the wildcard digit');
 });
 
-test('t9 mic key: literal 0 up, horizontal scrub, tap space', {since: '3.35.0'}, () => {
+test('t9 mic key: up dead, horizontal scrub, tap space', {since: '3.35.0'}, () => {
     const world = fresh({ mode: 't9' });
     world.engineState({ phase: 'READY', mode: 't9', revision: 1, composing: '', rawInput: '',
         candidates: [], hasNextPage: false });
@@ -8274,7 +8240,7 @@ test('t9 mic key: literal 0 up, horizontal scrub, tap space', {since: '3.35.0'},
     world.move(space, 20, -30);
     world.touchUp(space);
     world.clock.advance(2);
-    equal(world.native.of('commitText').slice(-1)[0].args[0], '0', 'mic up-flick commits literal 0');
+    equal(world.native.of('commitText').length, 0, 'mic up-flick no longer types 0');
     // 横滑=光标 scrub（T9 唯一保留 scrub 的键）；scrub 不得补发空格。
     const before = world.native.of('space').length;
     world.touchDown(space, 20, 20);
@@ -8537,13 +8503,13 @@ test('t9 1-key chrome: tap yields toolbar, pick/× restores, up-flick commits 1'
     world.tap(world.$('composeClear'));
     assert(!world.$('setupButton').hidden, 'assoc × restores the toolbar');
     equal(world.native.of('clearComposing').length, 0, 'assoc × must not clear the composition');
-    // 上滑 1 = 字面数字 1（1 不在引擎 alphabet，sendSymbol 旁路上屏）。
+    // 上滑 1：不再有数字功能，不上屏。
+    const n1 = world.native.of('commitText').length;
     world.touchDown(one, 20, 20);
     world.move(one, 20, -30);
     world.touchUp(one);
     world.clock.advance(2);
-    equal(world.native.of('commitText').slice(-1)[0].args[0], '1',
-        'up-flick commits literal 1');
+    equal(world.native.of('commitText').length, n1, 'up-flick on 1 types nothing');
 });
 
 test('t9 7/9 down-swipe opens the split popup (下左/下右)', {since: '3.35.0'}, () => {
@@ -8580,7 +8546,7 @@ test('stroke renders the T9 skeleton with stroke keycaps', {since: '3.48.0'}, ()
         ['6', '＊'], ['7', '@#.'], ['8', '，'], ['9', '分词'],
     ]), '1-5 strokes / 6 wildcard / 7 symbol group / 8 comma / 9 split');
     // 功能列与底行沿用 T9 骨架：退格/重输/0 + 123/mic(0)/中英/确认。
-    ['backspace', 't9clear', 't9zero', 'symbols', 'enter'].forEach(role => {
+    ['backspace', 't9clear', 't9emoji', 'symbols', 'enter'].forEach(role => {
         assert(world.document.querySelector(`.t9-grid [data-role="${role}"]`),
             `chrome key ${role} present`);
     });
@@ -8621,7 +8587,7 @@ test('stroke taps feed stroke codes; 7 opens the symbol bar', {since: '3.48.0'},
     assert(!world.$('setupButton').hidden, 'toolbar restores after the pick');
 });
 
-test('stroke flicks: up commits the literal digit, other directions dead', {since: '3.48.0'}, () => {
+test('stroke flicks: all directions dead (no digits)', {since: '3.48.0'}, () => {
     const world = fresh({ mode: 'stroke' });
     world.engineState({ phase: 'READY', mode: 'stroke', revision: 1, composing: '', rawInput: '',
         candidates: [], hasNextPage: false });
@@ -8630,9 +8596,8 @@ test('stroke flicks: up commits the literal digit, other directions dead', {sinc
     world.move(five, 20, -30);
     world.touchUp(five);
     world.clock.advance(2);
-    equal(world.native.of('commitText').slice(-1)[0].args[0], '5',
-        'up-flick commits the literal digit (bypasses the engine)');
-    // 下/左/右无语义：不得落回通用分支发 CN_ALTS 符号或大写字母。
+    equal(world.native.of('commitText').length, 0, 'up-flick types no digit');
+    // 四向无语义：不得落回通用分支发 CN_ALTS 符号或大写字母。
     for (const [dx, dy] of [[0, 40], [-40, 0], [40, 0]]) {
         const before = world.native.of('key').length + world.native.of('commitText').length;
         world.touchDown(five, 20, 20);
@@ -8642,13 +8607,13 @@ test('stroke flicks: up commits the literal digit, other directions dead', {sinc
         equal(world.native.of('key').length + world.native.of('commitText').length, before,
             `flick (${dx},${dy}) sends nothing`);
     }
-    // mic 上滑=字面 0（t9 惯例沿用）。
+    // mic 上滑也不再打 0。
     const space = world.$('spaceKey');
     world.touchDown(space, 20, 20);
     world.move(space, 20, -30);
     world.touchUp(space);
     world.clock.advance(2);
-    equal(world.native.of('commitText').slice(-1)[0].args[0], '0', 'mic up-flick commits literal 0');
+    equal(world.native.of('commitText').length, 0, 'mic up-flick types no 0');
 });
 
 test('stroke long-press popup: T9-style three rows, middle preselected', {since: '3.48.0'}, () => {
