@@ -684,7 +684,10 @@ class TextInputCoordinator(
             // librime's preedit interleaves display-only spaces at syllable
             // boundaries ("xi an") - they are not user input and must not
             // land (the Enter path has the same quirk by design).
-            if (composingRaw.isNotEmpty()) {
+            // 九宫格/笔画的 raw 是数字/笔画码，不是文字：照落会在长按选符号
+            // 时打出「64426：」这类数字串，与 acceptCurrentCompositionNow 同规则丢弃。
+            val codeMode = mode == InputMode.T9 || mode == InputMode.STROKE
+            if (composingRaw.isNotEmpty() && !codeMode) {
                 val raw = composingRaw.replace(" ", "")
                 expectReplacement(raw.length)
                 editor.commitText(raw)
