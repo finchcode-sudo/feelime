@@ -431,7 +431,7 @@ JS→Native（全部 token 门控 + 输入校验；面板 id `[0-9a-f]{1,16}`、
 | --- | --- |
 | 文本 | `key`、`commitText`、`backspace`、`enter`、`space`、`moveCursor`、`clearComposing`、`setComposition`、`keyFeedback`（按键声/振动，§6.1） |
 | 候选 | `chooseCandidate`、`pageNext`、`pagePrevious`、`deleteCandidate`、`deleteHighlightedCandidate` |
-| 面板 | `getClipboard`、`removeClipboard`、`clearClipboard`、`getFavorites`、`favoritesAdd/Update/Remove/Move`、`panelInput`、`panelFlush`、`panelSelection`、`commitAssoc`（联想词点击，§3a） |
+| 面板 | `getClipboard`、`removeClipboard`、`clearClipboard`、`getFavorites`、`favoritesAdd/Update/Remove/Move`、`panelInput`、`panelFlush`、`panelSelection`、`commitAssoc`（联想词点击，§3a）、`commitEnglishSuggestion`（英文补全点选，association.md §3a） |
 | 编辑器（单手侧条，§2.8） | `editorCursor`（方向键）、`editorAction`（全选/剪切/复制/粘贴） |
 | 控制键 | `keyEvent`、`keyEventPhysical`（§11，keycode 白名单 + meta 位白名单 + 限流） |
 | 语音 | `startVoice`、`stopVoice`、`cancelVoice`（启停经状态事件） |

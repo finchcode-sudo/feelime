@@ -701,6 +701,28 @@ class TextInputCoordinator(
     }
 
     /**
+     * 英文补全点选：把光标前 [prefixLength] 个字符（用户已敲出的单词前缀）
+     * 换成 [text]（词 + 空格）。先删后贴都走编辑器端口，并按删除后的光标位置
+     * 重置选区预测，免得后面的 onUpdateSelection 被当成外部移动。
+     */
+    fun replaceBeforeCursor(prefixLength: Int, text: String): DispatchAck {
+        asrGuard()
+        onExternalEditorMutation()
+        if (prefixLength > 0) {
+            if (!editor.deleteSurroundingCodePoints(prefixLength)) {
+                repeat(prefixLength) { editor.sendDeleteKey() }
+            }
+            if (predictedSelectionStart >= 0 && predictedSelectionStart == predictedSelectionEnd) {
+                val target = (predictedSelectionStart - prefixLength).coerceAtLeast(0)
+                predictedSelectionStart = target
+                predictedSelectionEnd = target
+                expectedSelections.addLast(target to target)
+            }
+        }
+        return pasteExternal(text)
+    }
+
+    /**
      * Candidate-bar × (design: candidate compose controls): abort the current
      * composition and restore Direct/tools. Same scrub ordering as
      * [pasteExternal] — the engine buffer must go through the Reset command

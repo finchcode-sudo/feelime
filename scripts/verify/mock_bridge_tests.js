@@ -7817,6 +7817,39 @@ test('assoc click routes through the real bridge (FeelimeNative)', {since: '3.33
     assert(!world.$('mic').hidden, 'mic restored after assoc pick');
 });
 
+test('english suggestions ride the assoc bar: click replaces the prefix via the english bridge', {since: '3.33.0'}, () => {
+    const world = fresh({ mode: 'direct' });
+    world.engineState({ phase: 'READY', mode: 'direct', revision: 1, composing: '', rawInput: '',
+        candidates: [], hasNextPage: false });
+    world.assoc(['pork', 'pornhub'], { kind: 'english', prefix: 'por' });
+    const buttons = () => [...world.$('candidates').children]
+        .filter(b => (b.className || '').split(/\s+/).includes('assoc'));
+    equal(buttons().length, 2, 'english suggestions render on the assoc bar');
+    assert(world.$('setupButton').hidden, 'suggestions yield the toolbar like assoc words');
+    buttons()[1].click();
+    const english = world.native.of('commitEnglishSuggestion');
+    equal(english.length, 1, 'click goes through the english bridge');
+    equal(`${english[0].args[0]}|${english[0].args[1]}`, 'pornhub|por',
+        'word and the prefix it was computed for are passed');
+    equal(world.native.of('commitAssoc').length, 0, 'the chinese assoc bridge is not used');
+    equal(buttons().length, 0, 'bar clears after the pick');
+    // 之后的中文联想不能沿用英文态。
+    world.assoc(['的', '是']);
+    buttons()[0].click();
+    equal(world.native.of('commitAssoc').length, 1, 'later chinese assoc goes back to commitAssoc');
+});
+
+test('english suggestions are not swallowed by backspace-clears-assoc (issue #46 option)', {since: '3.73.18'}, () => {
+    const world = fresh({ mode: 'direct' });
+    world.hello({ backspaceAssocOn: true });
+    world.engineState({ phase: 'READY', mode: 'direct', revision: 1, composing: '', rawInput: '',
+        candidates: [], hasNextPage: false });
+    world.assoc(['pork', 'pornhub'], { kind: 'english', prefix: 'por' });
+    world.tap(world.document.querySelector('[data-role="backspace"]'));
+    equal(world.native.of('backspace').length, 1, 'backspace still deletes a character');
+    equal(world.$('candidates').children.length, 2, 'suggestions stay until native refreshes them');
+});
+
 test('assoc backspace: off by default, on = clears assoc like × (issue #46)', {since: '3.73.18'}, () => {
     // 默认关：联想让位态退格照旧删字符（原生 backspace）。
     const w1 = fresh({ mode: 'pinyin' });

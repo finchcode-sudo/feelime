@@ -701,6 +701,9 @@ class MockNative {
     commitAssoc(text, token) {
         this._record('commitAssoc', [text, token]);
     }
+    commitEnglishSuggestion(word, prefix, token) {
+        this._record('commitEnglishSuggestion', [word, prefix, token]);
+    }
     setKeyboardHeight(totalCssPx, token) {
         this._record('setKeyboardHeight', [totalCssPx, token]);
     }
@@ -1081,8 +1084,8 @@ class KeyboardWorld {
         this.context.window.Feelime.onEngineState(payload);
     }
 
-    assoc(words) {
-        this.context.window.Feelime.onAssoc({ words });
+    assoc(words, extra) {
+        this.context.window.Feelime.onAssoc(Object.assign({ words }, extra || {}));
     }
 
     nativeState(payload) {

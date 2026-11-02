@@ -258,6 +258,11 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
     private var hostSelectionStart = -1
     private var hostSelectionEnd = -1
 
+    /** 英文学习：最近一次选区变化是不是「向前打了一个字符」；点补全候选后
+     *  置位 skip，让紧随其后的那次刷新不再重复计数。 */
+    private var englishTypedForward = false
+    private var englishSkipLearn = false
+
     // Bridge handshake state (design section 5.3). A fresh random token is
     // minted per page load; every call must carry the live token.
     // @Volatile：#34 手势桥（backspaceN/backspaceRestoreOne）在桥线程
@@ -1432,6 +1437,10 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         if (candidatesStart < 0 && candidatesEnd < 0 &&
             (oldSelStart != newSelStart || oldSelEnd != newSelEnd)
         ) {
+            // 英文学习只认「光标向前正好走一个字符」的输入（打字）；退格、粘贴、
+            // 点选移动光标都不算，免得同一个词被反复计数。
+            englishTypedForward = oldSelStart == oldSelEnd && newSelStart == newSelEnd &&
+                newSelStart - oldSelStart == 1
             scheduleAssociationRefresh()
         }
     }
@@ -2360,8 +2369,11 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
     }
 
     /** 推送/清空联想词（docs/design/association.md §3）。 */
-    private fun pushAssoc(words: List<String>) {
+    private fun pushAssoc(words: List<String>, englishPrefix: String? = null) {
         val payload = JSONObject().put("words", JSONArray(words))
+        // 英文补全复用同一条候选条通道：kind=english + 当时的单词前缀，点选时
+        // 原生按前缀校验、替换。
+        if (englishPrefix != null) payload.put("kind", "english").put("prefix", englishPrefix)
         evaluate("window.Feelime && window.Feelime.onAssoc && window.Feelime.onAssoc($payload)")
     }
 
@@ -2381,18 +2393,61 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
      *  编辑框内容；选区非空时没有「前文」，直接清。读不到文本（宿主返回
      *  null）时保持现状，不凭空清。 */
     private fun refreshAssociationFromEditor() {
-        if (panelInputActive || !readAssociation(this)) return
+        if (panelInputActive || !readAssociation(this) || !::coordinator.isInitialized) return
         val info = currentInputEditorInfo ?: return
         if (isSensitiveEditor(info) || isTerminalLikeEditor(info)) return
         val connection = currentInputConnection ?: return
+        val typedForward = englishTypedForward
+        val skipLearn = englishSkipLearn
+        englishTypedForward = false
+        englishSkipLearn = false
         if (hostSelectionStart != hostSelectionEnd) {
             clearAssociation()
+            return
+        }
+        // 英文 Direct 模式：补全 + 学习；其余模式沿用中文联想。
+        if (coordinator.currentMode == com.feelime.ime.engine.InputMode.DIRECT) {
+            val text = connection
+                .getTextBeforeCursor(com.feelime.ime.engine.EnglishSuggestStore.WINDOW, 0)
+                ?.toString() ?: return
+            refreshEnglishSuggestions(info, text, typedForward && !skipLearn)
             return
         }
         val before = connection
             .getTextBeforeCursor(com.feelime.ime.engine.AssociationStore.MAX_SUFFIX, 0)
             ?.toString() ?: return
         pushAssoc(com.feelime.ime.engine.AssociationStore.next(applicationContext, before))
+    }
+
+    /** 英文补全候选 + 学习（EnglishSuggestStore）。URL/邮箱/数字输入框和声明
+     *  「不要建议」的输入框既不补全也不学习。 */
+    private fun refreshEnglishSuggestions(info: EditorInfo, before: String, learn: Boolean) {
+        if (!englishSuggestAllowed(info)) {
+            clearAssociation()
+            return
+        }
+        if (learn) {
+            com.feelime.ime.engine.EnglishSuggestStore.finishedWord(before)?.let {
+                com.feelime.ime.engine.EnglishSuggestStore.learn(applicationContext, it)
+            }
+        }
+        val prefix = com.feelime.ime.engine.EnglishSuggestStore.trailingPrefix(before)
+        val words = if (prefix == null) emptyList<String>()
+        else com.feelime.ime.engine.EnglishSuggestStore.suggest(applicationContext, prefix)
+        if (prefix == null || words.isEmpty()) clearAssociation() else pushAssoc(words, prefix)
+    }
+
+    private fun englishSuggestAllowed(info: EditorInfo): Boolean {
+        val type = info.inputType
+        if (type and InputType.TYPE_MASK_CLASS != InputType.TYPE_CLASS_TEXT) return false
+        if (type and InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS != 0) return false
+        return when (type and InputType.TYPE_MASK_VARIATION) {
+            InputType.TYPE_TEXT_VARIATION_URI,
+            InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS,
+            InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS,
+            InputType.TYPE_TEXT_VARIATION_FILTER -> false
+            else -> true
+        }
     }
 
     /** Redirect editor writes into the focused panel input . */
@@ -3733,6 +3788,32 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
                 }
             }
         }
+
+        /** 英文补全点选：把光标前的单词前缀 [prefix] 换成「词 + 空格」并学一次。
+         *  键盘条上的候选可能是上一键的残影，所以先按当前光标前文本校验前缀，
+         *  对不上就忽略（条很快会被新一轮刷新替换）。 */
+        @JavascriptInterface
+        fun commitEnglishSuggestion(word: String, prefix: String, token: String) =
+            guarded(token, limited = false) {
+                if (word.isEmpty() || word.length > 32 || prefix.isEmpty() || prefix.length > 32) {
+                    return@guarded
+                }
+                onMain {
+                    if (panelInputActive || !readAssociation(applicationContext)) return@onMain
+                    val info = currentInputEditorInfo ?: return@onMain
+                    if (isSensitiveEditor(info) || isTerminalLikeEditor(info)) return@onMain
+                    if (!englishSuggestAllowed(info)) return@onMain
+                    val before = currentInputConnection
+                        ?.getTextBeforeCursor(com.feelime.ime.engine.EnglishSuggestStore.WINDOW, 0)
+                        ?.toString() ?: return@onMain
+                    if (com.feelime.ime.engine.EnglishSuggestStore.trailingPrefix(before) != prefix) {
+                        return@onMain
+                    }
+                    englishSkipLearn = true
+                    coordinator.replaceBeforeCursor(prefix.length, "$word ")
+                    com.feelime.ime.engine.EnglishSuggestStore.learn(applicationContext, word)
+                }
+            }
 
         @JavascriptInterface
         fun panelSelection(start: Int, end: Int, session: Int, token: String) = guarded(token, limited = false) {

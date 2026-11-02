@@ -1819,6 +1819,10 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             // 中文联想（docs/design/association.md），hello/onAssoc 驱动。
             this.associationOn = false;
             this.assocWords = [];
+            // 英文补全复用联想候选条：assocKind='english' 时 assocPrefix 是算
+            // 候选时光标前的单词前缀，点选走 commitEnglishSuggestion。
+            this.assocKind = '';
+            this.assocPrefix = '';
             // 联想让位态退格清联想（issue #46）：hello 回读，默认关。
             this.backspaceAssocOn = false;
             // 万象 / 键功能引导（issue #45）：hello 回读，默认关。
@@ -2416,7 +2420,9 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
          *  （无组合）时，退格等效 × ——清联想恢复工具栏、不动编辑框；
          *  其余情况照旧走原生删除（回执透传给 #34 回滑恢复）。 */
         backspaceAction() {
-            if (this.backspaceAssocOn && this.assocWords.length && !this.composing) {
+            // 英文补全候选不拦退格：它跟着光标前的字走，退格要照常删字。
+            if (this.backspaceAssocOn && this.assocWords.length && !this.composing &&
+                this.assocKind !== 'english') {
                 this.assocWords = [];
                 this.renderCandidates(this.lastEngineState || {});
                 return true;
@@ -11884,14 +11890,28 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             // 组合期间联想让位：native 按光标前文本的刷新可能晚于下一轮组合
             // 开始到达，迟到的联想词留在 assocWords 里会在组合取消后冒出来。
             if (this.composing) this.assocWords = [];
+            this.assocKind = payload && payload.kind === 'english' ? 'english' : '';
+            this.assocPrefix = this.assocKind && typeof payload.prefix === 'string'
+                ? payload.prefix : '';
             if (this.variantReplaying) return;
             this.renderCandidates(this.lastEngineState || {});
         }
 
         /** 联想词点击：原生写入编辑器并推下一轮联想（连续联想）。 */
         commitAssocWord(word) {
+            const english = this.assocKind === 'english';
+            const prefix = this.assocPrefix;
             this.assocWords = [];
+            this.assocKind = '';
+            this.assocPrefix = '';
             this.renderCandidates(this.lastEngineState || {});
+            // 英文补全：原生把光标前的前缀换成「词 + 空格」并学一次。
+            if (english) {
+                if (typeof Native !== 'undefined' && typeof Native.commitEnglishSuggestion === 'function') {
+                    Native.commitEnglishSuggestion(word, prefix, this.token);
+                }
+                return;
+            }
             // 桥全局叫 FeelimeNative（本作用域里别名 Native）；window.Native
             // 从不存在，用它做守卫会把点击静默吞掉（2026-09-13 9o 实录）。
             if (typeof Native !== 'undefined' && typeof Native.commitAssoc === 'function') {

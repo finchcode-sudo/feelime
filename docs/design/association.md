@@ -45,6 +45,33 @@
 - 点击联想词：`Native.commitAssoc(word, token)` → coordinator.pasteExternal
   写入编辑器 → 立即以该词为前词计算下一轮联想并推送（连续联想）。
 
+## 3a. 英文补全与学习（2026-11-02，用户：「Gboard 都知道我的喜好」）
+
+英文 Direct 模式逐键上屏、没有组合，原来候选条空着。复用联想候选条通道：
+
+- **候选**：`refreshAssociationFromEditor` 在当前模式为 DIRECT 时，取光标前
+  48 字（`EnglishSuggestStore.WINDOW`），`trailingPrefix` 提取正在输入的单词
+  前缀（≥2 字母；邮箱/网址/数字/文件名里的不算，汉字、空白、引号、括号、
+  连字符之后算），`suggest` 排序：已学词（次数降序）→ 内置技术词
+  （`DEFAULT_ENGLISH_WORDS`）→ `english-words.txt` 高频词，至多 6 条，大小写
+  跟随前缀（首字母大写→首字母大写，全大写→全大写）。经 `onAssoc` 推送，
+  payload 带 `kind:"english"` 和当时的 `prefix`。
+- **点选**：键盘调 `Native.commitEnglishSuggestion(word, prefix, token)`；原生
+  先核对光标前文本的前缀仍是 `prefix`（候选条可能是上一键的残影，对不上就
+  忽略），再 `coordinator.replaceBeforeCursor` 删前缀、上屏「词 + 空格」。
+- **学习**：打字（选区向前正好走一个字符）使光标前文本以空格/标点收尾时，
+  记下刚收尾的单词（`finishedWord`）；点补全候选也记一次。词存
+  `files/english-learned.tsv`（key、次数、词形），上限 3000，超出删次数最低
+  的 10%；不进备份、不外传。词形：带内部大写（iPhone/GitHub）或短全大写
+  （APK）原样记，其余小写，句首大写不污染。
+- **不做**：密码框/终端框、URL/邮箱/过滤类输入框、声明
+  `TYPE_TEXT_FLAG_NO_SUGGESTIONS` 的输入框——既不补全也不学习。
+- **键盘侧**：英文候选与中文联想共用 `assocWords`，× 清除、工具栏让位同口径；
+  「退格清联想」开关（#46）**不拦**英文候选——它跟着光标前的字走，退格要
+  照常删字。
+- **开关**：沿用「中文联想」开关（`association_on`，默认关），没有单独入口；
+  关掉即不补全、不学习。
+
 ## 4. 开关
 
 - `feelime_keyboard` 偏好 `association_on`，**默认关**（不惊扰现有用户，
