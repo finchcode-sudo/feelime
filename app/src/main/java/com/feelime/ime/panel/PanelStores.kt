@@ -112,16 +112,20 @@ class ClipboardStore(private val context: Context) {
      * would resurrect the just-wiped entry and lift the marker. Only a clip
      * that differs from the suppressed fingerprint is a REAL new recording.
      */
-    fun captureCurrent(fromFocus: Boolean = true) {
+    fun captureCurrent(fromFocus: Boolean = true, onlySensitiveClip: Boolean = false) {
         val clip = clipboard(context)?.primaryClip
         if (clip == null) {
             imageNote = "未能读取系统剪贴板（输入法需在输入框聚焦时才有权限）"
             return
         }
         if (clip.itemCount == 0) return
-        // The flag is also used for version reports copied by Settings.
-        // Reading the literal key works on older Android releases too.
-        if (clip.description.extras?.getBoolean("android.content.extra.IS_SENSITIVE", false) == true) return
+        // 不再因 IS_SENSITIVE 跳过（2026-11-02 用户要求）：密码管理器复制的
+        // 密码/验证码都带这个标记，跳过就进不了剪贴板历史。
+        // onlySensitiveClip（密码框聚焦时的补录）：只收带标记的 clip——复制
+        // 密码后点进登录框正是这个场景，普通 clip 仍不在密码框里采集。
+        if (onlySensitiveClip &&
+            clip.description.extras?.getBoolean("android.content.extra.IS_SENSITIVE", false) != true
+        ) return
         // 带 uri 的剪贴项（图片的典型形态）：必须先于 coerceToText 判断——它的
         // coerceToText 是 content:// 字符串，会被当成文字记进历史。
         // 来源声明的 MIME 不可信（很多 app 只写 text/uri-list），所以只要有
@@ -316,9 +320,8 @@ class ClipboardStore(private val context: Context) {
     private fun currentClipText(): String? {
         val clip = clipboard(context)?.primaryClip ?: return null
         if (clip.itemCount == 0) return null
-        if (clip.description.extras?.getBoolean("android.content.extra.IS_SENSITIVE", false) == true) {
-            return null
-        }
+        // 带 IS_SENSITIVE 的 clip 现在也入历史（见 captureCurrent），清空时同样
+        // 要打抑制指纹，否则焦点补录会把刚清掉的密码录回来。
         // 带 uri 的剪贴（图片）的 coerceToText 只是 content:// 串，不是可抑制的文字。
         if (clip.getItemAt(0).uri != null) return null
         return clip.getItemAt(0).coerceToText(context)?.toString()?.takeIf { it.isNotEmpty() }

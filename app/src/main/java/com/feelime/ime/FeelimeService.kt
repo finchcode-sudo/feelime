@@ -1362,6 +1362,9 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         if (clipboardStore.collectEnabled) {
             clipboardStore.captureCurrent()
             clipboardStore.importRecentScreenshot()
+        } else {
+            // 密码框：只补录密码管理器复制的（带敏感标记的）clip。
+            clipboardStore.captureCurrent(onlySensitiveClip = true)
         }
         // TYPE_NULL (terminal) editors: force the Direct engine there - see
  // TextInputCoordinator.onEditorStarted .
@@ -1506,6 +1509,8 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         if (clipboardStore.collectEnabled) {
             clipboardStore.captureCurrent()
             clipboardStore.importRecentScreenshot()
+        } else {
+            clipboardStore.captureCurrent(onlySensitiveClip = true)
         }
  // A fresh show always lands on the main view - a
         // keyboard hidden from the symbol layer must not come back there.
@@ -2265,10 +2270,10 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
     }
 
     private fun pushClipboard() {
-        // Password fields get an empty list: password managers' copied content
-        // must not be renderable on screen while a sensitive editor is focused.
+        // 密码框只给最新一条（2026-11-02 用户要求：密码管理器复制后点进登录框
+        // 要能从面板粘贴），不给整段历史；图片不给。
         val sensitive = isSensitiveEditor()
-        val items = if (sensitive) emptyList() else clipboardStore.items()
+        val items = if (sensitive) clipboardStore.items().take(1) else clipboardStore.items()
         val images = if (sensitive) emptyList() else clipboardStore.images.items()
         val payload = JSONObject().put(
             "items",

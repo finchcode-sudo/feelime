@@ -247,8 +247,9 @@ hello**，不用 merged-store 整镜像替换（round-2 C7.1：会删其他键�
 **串行到主 handler**，消除「复制 A 回调排队 → clear → 旧回调入 A」的
 时序洞，round-2 C6）：
 
-- **只存指纹不存原文**：SHA-256 前 16 hex 作为抑制标记（敏感 clip 一律
-  不产生标记——保持 IS_SENSITIVE 边界，round-2 P1）；
+- **只存指纹不存原文**：SHA-256 前 16 hex 作为抑制标记（2026-11-02 起
+  IS_SENSITIVE 的 clip 也入历史、也产生标记——用户要密码管理器复制的内容
+  进剪贴板面板，原 round-2 P1 的「敏感 clip 不产生标记」边界撤销）；
 - clear()/remove(id)（后者仅当所删项指纹==当前系统剪贴板指纹）在**清空
   之后**快照当前系统 clip 指纹为标记；collectEnabled 不约束标记维护
   （与历史记录分离）；
