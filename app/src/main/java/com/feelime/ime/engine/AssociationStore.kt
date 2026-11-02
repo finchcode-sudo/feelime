@@ -15,7 +15,8 @@ import java.io.File
  */
 object AssociationStore {
     private const val TABLE_PATH = "assoc/zh_bigram.tsv"
-    private const val MAX_SUFFIX = 4
+    /** 查询取的最长后缀字数；光标前文本刷新联想时按同值取样。 */
+    const val MAX_SUFFIX = 4
     private const val MAX_HOPS = 8
 
     @Volatile private var table: Map<String, List<String>>? = null

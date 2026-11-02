@@ -957,20 +957,24 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
                 Diagnostics.log("engine",
                     "pushState rev=${event.revision} composing=${event.state.composing} view=${System.identityHashCode(keyboardView)}")
                 evaluate("window.Feelime && window.Feelime.onEngineState && window.Feelime.onEngineState($payload)")
-                // 中文联想（docs/design/association.md §3）：只在 commit 事件
-                // 上计算并推送，键盘保留现有联想直到组合开始。
+                // 中文联想（docs/design/association.md §3）：commit 事件上
+                // 计算并推送。非中文模式（英文/直出/日文/法俄文…）的上屏同样
+                // 让上下文断链——此前这些上屏既不推也不清，联想词会一直停在
+                // 上一次中文上屏的后继上（2026-11-02 用户反馈「联想不变」）。
                 val committed = event.state.commit
-                if (committed != null && readAssociation(this@FeelimeService) &&
-                    (
+                if (committed != null && readAssociation(this@FeelimeService)) {
+                    if (
                         event.stamp.mode == com.feelime.ime.engine.InputMode.PINYIN ||
                             event.stamp.mode == com.feelime.ime.engine.InputMode.DOUBLE_PINYIN ||
                             event.stamp.mode == com.feelime.ime.engine.InputMode.T9 ||
                             // 笔画（issue #18）：上屏的也是汉字文本，联想表
                             // 按文本后继查询，与输入模式无关。
                             event.stamp.mode == com.feelime.ime.engine.InputMode.STROKE
-                        )
-                ) {
-                    pushAssoc(com.feelime.ime.engine.AssociationStore.next(applicationContext, committed))
+                    ) {
+                        pushAssoc(com.feelime.ime.engine.AssociationStore.next(applicationContext, committed))
+                    } else {
+                        clearAssociation()
+                    }
                 }
             },
             engineFactory = { mode ->
@@ -1417,6 +1421,15 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         // host moves/selects the caret outside our own bridge action.
         if (::coordinator.isInitialized && !panelInputActive) {
             coordinator.onEditorSelectionChanged(oldSelStart, oldSelEnd, newSelStart, newSelEnd)
+        }
+        // 联想跟着编辑框真实内容走（光标前文本变了就重算）：退格、英文/符号
+        // 直出、粘贴、点选移动光标都不经过中文 commit 事件，不在这里兜底的话
+        // 联想词会一直停在上一次中文上屏的后继上。组合区（candidatesStart>=0）
+        // 内的变化不算——组合期间联想本就让位。
+        if (candidatesStart < 0 && candidatesEnd < 0 &&
+            (oldSelStart != newSelStart || oldSelEnd != newSelEnd)
+        ) {
+            scheduleAssociationRefresh()
         }
     }
 
@@ -2348,6 +2361,34 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
     }
 
     private fun clearAssociation() = pushAssoc(emptyList())
+
+    private val associationRefresh = Runnable { refreshAssociationFromEditor() }
+
+    /** 光标/文本变化后合并成一次刷新（光标拖动、连续退格会连发回调）。 */
+    private fun scheduleAssociationRefresh() {
+        if (!readAssociation(this)) return
+        main.removeCallbacks(associationRefresh)
+        main.postDelayed(associationRefresh, ASSOCIATION_REFRESH_DELAY_MS)
+    }
+
+    /** 按编辑框里光标前的真实文本重算联想：文本以汉字词结尾就给它的后继，
+     *  否则（英文、符号、空）清掉。敏感框（密码）、终端型框和面板输入不读
+     *  编辑框内容；选区非空时没有「前文」，直接清。读不到文本（宿主返回
+     *  null）时保持现状，不凭空清。 */
+    private fun refreshAssociationFromEditor() {
+        if (panelInputActive || !readAssociation(this)) return
+        val info = currentInputEditorInfo ?: return
+        if (isSensitiveEditor(info) || isTerminalLikeEditor(info)) return
+        val connection = currentInputConnection ?: return
+        if (hostSelectionStart != hostSelectionEnd) {
+            clearAssociation()
+            return
+        }
+        val before = connection
+            .getTextBeforeCursor(com.feelime.ime.engine.AssociationStore.MAX_SUFFIX, 0)
+            ?.toString() ?: return
+        pushAssoc(com.feelime.ime.engine.AssociationStore.next(applicationContext, before))
+    }
 
     /** Redirect editor writes into the focused panel input . */
     private fun panelCommit(text: String) {
@@ -4506,6 +4547,8 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
 
     private companion object {
         const val LOCAL_HOST = "feelime.local"
+        /** 光标变化后重算联想的合并延迟（连续退格/拖光标只算最后一次）。 */
+        const val ASSOCIATION_REFRESH_DELAY_MS = 60L
         /** Re-derive the JS row budget from the settled view geometry. */
         const val HEIGHT_SETTLED_JS =
             "window.Feelime && window.Feelime.applyHeightNow && window.Feelime.applyHeightNow()"

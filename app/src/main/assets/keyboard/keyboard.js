@@ -11881,6 +11881,9 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
         onAssoc(payload) {
             this.assocWords = Array.isArray(payload && payload.words)
                 ? payload.words.filter(word => typeof word === 'string' && word) : [];
+            // 组合期间联想让位：native 按光标前文本的刷新可能晚于下一轮组合
+            // 开始到达，迟到的联想词留在 assocWords 里会在组合取消后冒出来。
+            if (this.composing) this.assocWords = [];
             if (this.variantReplaying) return;
             this.renderCandidates(this.lastEngineState || {});
         }

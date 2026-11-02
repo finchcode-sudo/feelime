@@ -7907,6 +7907,28 @@ test('mode switch clears assoc words', {since: '3.33.0'}, () => {
     equal(assocCount(), 0, 'mode change clears the assoc bar');
 });
 
+test('assoc words arriving mid-composition are dropped, not resurrected', {since: '3.33.0'}, () => {
+    // native 按光标前文本刷新联想，可能晚于下一轮组合开始到达；迟到的
+    // 联想词不能留在 assocWords 里，组合取消后冒出来（联想「不变」的一种形态）。
+    const world = fresh({ mode: 'pinyin' });
+    world.engineState({ phase: 'READY', mode: 'pinyin', revision: 1, composing: '', rawInput: '',
+        candidates: [], hasNextPage: false });
+    world.assoc(['的', '是']);
+    const assocCount = () => [...world.$('candidates').children]
+        .filter(b => (b.className || '').split(/\s+/).includes('assoc')).length;
+    equal(assocCount(), 2, 'assoc words render while idle');
+    world.engineState({ phase: 'READY', mode: 'pinyin', revision: 2, composing: 'ni', rawInput: 'ni',
+        candidates: [{ id: 'c1', text: '你' }], hasNextPage: false });
+    equal(assocCount(), 0, 'composition starts: assoc yields');
+    world.assoc(['吃', '喝']);
+    equal(assocCount(), 0, 'late assoc push during composition is not rendered');
+    world.engineState({ phase: 'READY', mode: 'pinyin', revision: 3, composing: '', rawInput: '',
+        candidates: [], hasNextPage: false });
+    equal(assocCount(), 0, 'composition cancelled: the late words do not resurface');
+    world.assoc(['国', '文']);
+    equal(assocCount(), 2, 'a fresh assoc push after composition renders normally');
+});
+
 test('t9 long-press popup: letters/symbols land literally, digit feeds the engine', {since: '3.35.0', until: '3.73.41'}, () => {
     const world = fresh({ mode: 't9' });
     world.engineState({ phase: 'READY', mode: 't9', revision: 1, composing: '', rawInput: '',
