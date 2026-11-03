@@ -48,7 +48,8 @@ object CustomPhraseStore {
     // 14：builtin-words.tsv 新增「雾岛奈津美」。
     // 15：builtin-words.tsv 新增「米莱狄」。
     // 16：builtin-words.tsv 新增「蚩奼」。
-    private const val DERIVE_VERSION = 16
+    // 17：英文内置词新增 Pornhub / porn。
+    private const val DERIVE_VERSION = 17
 
     private const val T9_DIGITS = "22233344455566677778889999"
 
@@ -131,6 +132,7 @@ object CustomPhraseStore {
         "youtube" to "youtube", "netflix" to "netflix", "spotify" to "spotify",
         "twitter" to "twitter", "google" to "google", "chrome" to "chrome",
         "firefox" to "firefox", "edge" to "edge",
+        "Pornhub" to "pornhub", "porn" to "porn",
         "office" to "office", "photoshop" to "photoshop", "bluetooth" to "bluetooth",
         // 扩容（2026-09-27，#29）：平台/工具/硬件/格式/日常词 141 个，
         // 已按 custom-phrase-codes.json 真音节表预筛（meta/mouse/openai/
