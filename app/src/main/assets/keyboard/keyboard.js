@@ -3723,22 +3723,18 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             if (this.variantReplaying) return;
             const raw = (this.lastRawInput || '').replace(/ /g, '');
             const head = raw.slice(0, raw.length - seg.length);
+            // 前缀里已有选定的汉字（连续造词 preedit「安 7452」）：点音节会
+            // 走 setComposition（Reset+逐键重放，汉字不是按键，重放丢字），
+            // 退格改写尾段又会让 librime 撤销已选汉字并留下残余数字
+            // （2026-11-04 实机：an'p'qi'j'a）。两条路都破坏已选内容，
+            // 所以已选汉字后音节条不改写——候选字词里照常选。
+            if (/[^a-z2-9]/i.test(head.replace(/'/g, ''))) return;
             // 键盘侧确认边界 = 已确认前缀 + 本段选中音节（引擎回显的段
             // 空格只是切分猜测，不能当确认边界用）。文本锚定给退格失效
             // 判定用。
             this._t9ConfirmedText = head + syllable;
             this.t9ConfirmedLen = this._t9ConfirmedText.length;
-            const target = this._t9ConfirmedText + seg.slice(syllable.length);
-            // 前缀里有已选汉字（连续造词的 preedit「安 7452」）：setComposition
-            // 是 Reset + 逐键重放，汉字不是按键、重放时丢失（点 qi 后「安」
-            // 凭空消失，2026-11-04 实机）。只改写未确认尾段：退格删掉尾段
-            // 再打新拼写，引擎里已选的汉字原样保留。
-            if (/[^a-z2-9]/i.test(head.replace(/'/g, ''))) {
-                this.switchToVariant(target,
-                    { drop: seg.length, keys: syllable + seg.slice(syllable.length) });
-                return;
-            }
-            this.switchToVariant(target);
+            this.switchToVariant(this._t9ConfirmedText + seg.slice(syllable.length));
         }
 
         /** preedit 观感：字母段与数字段之间插窄空格（64426 → ni·426 观感），
@@ -9666,7 +9662,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
          * visible delete-and-retype and the layer never collapses. The grid
          * keeps the previous parse's candidates until the target echo lands
          * (variantReplaying suppresses intermediate re-renders). */
-        switchToVariant(keys, tail) {
+        switchToVariant(keys) {
             if (this.variantReplaying) return;
             clearTimeout(this.variantReplayTimer);
             this.variantReplaying = true;
@@ -9683,16 +9679,14 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             }
             document.getElementById('expandGrid').classList.add('reloading');
             document.getElementById('expandPreedit').textContent = keys;
-            if (!tail && typeof Native.setComposition === 'function') {
+            if (typeof Native.setComposition === 'function') {
                 this.call(() => Native.setComposition(keys, this.token));
             } else {
-                // 旧桥回退 / 只改写尾段（tail）：逐键重放。tail 时只退格删尾段、
-                // 只打尾段新键，keys（完整目标）仅用于回显判定。
+                // Older native bridge: fall back to per-key replay.
                 const previous = (this.lastRawInput || '').replace(/ /g, '');
                 const replay = [];
-                const drop = tail ? tail.drop : previous.length;
-                for (let i = 0; i < drop; i++) replay.push('<backspace>');
-                for (const ch of (tail ? tail.keys : keys)) replay.push(ch);
+                for (let i = 0; i < previous.length; i++) replay.push('<backspace>');
+                for (const ch of keys) replay.push(ch);
                 const step = () => {
                     if (!replay.length) return;
                     const next = replay.shift();

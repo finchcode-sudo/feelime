@@ -8374,13 +8374,12 @@ test('t9 syllable strip: length-then-alphabet order, confirmed boundary, reading
         'hanzi preedit prefix leaves the tail selectable');
     world4.tap([...world4.document.querySelectorAll('#t9Strip .t9-side-cell')]
         .find(c => c.textContent === 'hao'));
-    // 汉字不是按键，setComposition 重放会把它丢掉：只退格删尾段（3 个）
-    // 再打 hao，已选汉字留在引擎里。
+    // 已选汉字后点音节：不改写（setComposition 丢字、退格改尾段会让引擎
+    // 撤销已选汉字），什么都不发。
     world4.clock.advance(400);
     equal(world4.native.of('setComposition').length, 0, 'no Reset+replay when hanzi is chosen');
-    equal(world4.native.of('backspace').length, 3, 'only the 3-digit tail is deleted');
-    equal(world4.native.of('key').map(c => c.args[0]).join(''), 'hao',
-        'new spelling typed after the kept hanzi');
+    equal(world4.native.of('backspace').length, 0, 'no tail backspaces either');
+    equal(world4.native.of('key').length, 0, 'nothing typed');
     // 目标回声落地解除重放冻结，再喂新输入。
     world4.engineState({ phase: 'READY', mode: 't9', revision: 2, composing: '你 hao',
         rawInput: '你 hao', candidates: [{ id: 'c1', text: '你好' }], hasNextPage: false });
