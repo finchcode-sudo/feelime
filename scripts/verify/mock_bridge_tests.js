@@ -3498,6 +3498,16 @@ test('landscape float keyboard: hidden while the viewport and page orientation d
     assert(!lost.document.body.classList.contains('kb-rotating'), 'safety timeout unhides');
 });
 
+test('keyboard stays hidden until the bridge hello lands (no default-layout flash)', {since: '3.73.67'}, () => {
+    const world = new KeyboardWorld().build();
+    assert(world.document.body.classList.contains('kb-await-hello'), 'hidden before hello');
+    world.hello({ mode: 't9' });
+    assert(!world.document.body.classList.contains('kb-await-hello'), 'shown after hello');
+    const lost = new KeyboardWorld().build();
+    lost.clock.advance(1300);
+    assert(!lost.document.body.classList.contains('kb-await-hello'), 'safety timeout unhides');
+});
+
 test('offline translate card: debounced translateText, live write into host, finalize on close', {since: '3.73.67'}, () => {
     const world = fresh();
     world.hello();

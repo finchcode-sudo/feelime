@@ -2264,6 +2264,18 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             // but the preview harness (and any missed hello) still needs the
             // viewport to win. Every resize re-derives the row height too -
             // a height drag changes the view without changing orientation.
+            // 页面刚创建、握手 hello 还没到：诊断导出实证（2026-11-05）
+            // pageLoad(9.530s) → helloPushed(9.869s) 间隔 ~340ms，这段时间页面
+            // 视口已是横屏、但悬浮开关还是默认值，按「横屏停靠」排版整宽铺出
+            // 一块普通键盘，hello 到了才缩成悬浮卡。握手前先藏起键盘，
+            // 1.2s 兜底（预览/握手丢失时不一直藏着）。
+            if (document.body && document.body.classList) {
+                document.body.classList.add('kb-await-hello');
+                this._helloWaitTimer = setTimeout(() => {
+                    this._helloWaitTimer = 0;
+                    document.body.classList.remove('kb-await-hello');
+                }, 1200);
+            }
             if (typeof window.addEventListener === 'function') {
                 window.addEventListener('resize', () => this.syncFloatRectSoon());
             if (typeof document.addEventListener === 'function') {
@@ -11377,6 +11389,9 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
         /* ===== native callbacks ===== */
 
         onBridgeHello(payload) {
+            clearTimeout(this._helloWaitTimer);
+            this._helloWaitTimer = 0;
+            document.body.classList.remove('kb-await-hello');
             if (payload.nativeApiVersion < MIN_NATIVE_API) return;
             const provided = payload.capabilities || [];
             if (!REQUIRED_CAPABILITIES.every(cap => provided.includes(cap))) return;
