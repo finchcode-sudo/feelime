@@ -2284,6 +2284,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                     if (!this.helloOrientation) {
                         this.applyOrientation(window.innerWidth > window.innerHeight);
                     }
+                    this.syncRotatePending();
                     this.applyHeight();
                     // 单手让位是屏宽百分比：旋转后重算。
                     if ((this.oneHand || 0) !== 0) this.applyOneHand();
@@ -7106,9 +7107,30 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             try { Native.diagEvent(line, this.token); } catch (_) { /* diagnostics must not interrupt input */ }
         }
 
+        /** 悬浮小键盘转屏闪烁：窗口先变成新方向的整宽，原生 hello 带来的
+         * 方向要晚一拍，这一拍里页面还按旧方向排版，整宽铺出一块普通键盘
+         * （2026-11-05 实机录屏：竖屏布局铺满横屏窗口，随后才缩成悬浮卡）。
+         * 视口方向与页面方向不一致且开了悬浮时先藏起键盘，方向对上再显示；
+         * 700ms 兜底，hello 没来也不会一直藏着。 */
+        syncRotatePending() {
+            const viewportLandscape = (window.innerWidth || 0) > (window.innerHeight || 0);
+            const pending = !!this.floatLandscape && !!this.helloOrientation
+                && viewportLandscape !== !!this.landscape;
+            document.body.classList.toggle('kb-rotating', pending);
+            clearTimeout(this._rotateTimer);
+            this._rotateTimer = 0;
+            if (pending) {
+                this._rotateTimer = setTimeout(() => {
+                    this._rotateTimer = 0;
+                    document.body.classList.remove('kb-rotating');
+                }, 700);
+            }
+        }
+
         applyFloatMode() {
             const on = !!(this.landscape && this.floatLandscape);
             document.body.classList.toggle('kb-float', on);
+            this.syncRotatePending();
             this.floatDiag('mode');
             this.syncFloatRect();
             // 悬浮态下轮询对账：键盘窗口隐藏时旋转，视口要等下次显示才更新，且

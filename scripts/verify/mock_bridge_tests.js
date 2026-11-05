@@ -3472,6 +3472,32 @@ test('landscape float keyboard: kb-float only in landscape with native opt-in, r
     assert(!off.document.body.classList.contains('kb-float'), 'native opt-out keeps the docked keyboard');
 });
 
+test('landscape float keyboard: hidden while the viewport and page orientation disagree', {since: '3.73.67'}, () => {
+    const world = fresh();
+    world.hello({ orientation: 'portrait', floatLandscape: true });
+    const win = world.context.window;
+    // 转屏：视口先变横，hello 还没到——页面仍是竖屏排版，必须先藏起。
+    win.innerWidth = 800; win.innerHeight = 360;
+    win.fireResize();
+    assert(world.document.body.classList.contains('kb-rotating'), 'hidden during the rotation gap');
+    // hello 带来横屏：方向对上，显示。
+    world.hello({ orientation: 'landscape', floatLandscape: true });
+    assert(!world.document.body.classList.contains('kb-rotating'), 'shown once orientations agree');
+    // 没开悬浮：不藏（停靠键盘无此闪烁）。
+    const off = fresh();
+    off.hello({ orientation: 'portrait', floatLandscape: false });
+    off.context.window.innerWidth = 800; off.context.window.innerHeight = 360;
+    off.context.window.fireResize();
+    assert(!off.document.body.classList.contains('kb-rotating'), 'docked keyboard never hidden');
+    // 兜底：hello 一直不来，700ms 后自己显示。
+    const lost = fresh();
+    lost.hello({ orientation: 'portrait', floatLandscape: true });
+    lost.context.window.innerWidth = 800; lost.context.window.innerHeight = 360;
+    lost.context.window.fireResize();
+    lost.clock.advance(800);
+    assert(!lost.document.body.classList.contains('kb-rotating'), 'safety timeout unhides');
+});
+
 test('offline translate card: debounced translateText, live write into host, finalize on close', {since: '3.73.67'}, () => {
     const world = fresh();
     world.hello();

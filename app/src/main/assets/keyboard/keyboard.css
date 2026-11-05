@@ -3210,6 +3210,9 @@ button:disabled { cursor: default; }
  * 3/4 放在屏幕右下，这样键位、提示字的比例和竖屏一致，不会因为变窄而叠字。
  * 缩放用 transform（getBoundingClientRect 返回的是缩放后的可见矩形，原生可触摸区
  * 就按它算）。宿主 App 不再被顶缩（原生 onComputeInsets 配合）。 */
+/* 转屏瞬间视口方向与页面方向不一致：先藏起键盘，避免整宽闪一下（见 syncRotatePending）。 */
+body.kb-rotating #softKeyboard { visibility: hidden; }
+
 body.landscape.kb-float #softKeyboard {
     left: auto;
     /* 右边距 = 下边距，离手机边缘等距（谷歌那张也是约等距）。 */
