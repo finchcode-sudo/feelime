@@ -7966,7 +7966,10 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             const fit = Math.floor((available - chrome) / rows);
             // A short landscape screen can cap content below 78 + 4*32.
             // Honor the actual budget so the last row clears the safe area.
-            const rowHeight = Math.max(this.landscape ? 1 : KB_ROW_MIN, fit);
+            // 横屏下限 20px（原为 1px）：旋转瞬间 clientHeight 读到过渡中的
+            // 小值，fit 算成 ≤0 时行高被压成 1px，键面整块「消失」约零点几秒，
+            // 等下一帧收敛才复原（2026-11-05 实机截图：只剩顶部工具栏）。
+            const rowHeight = Math.max(this.landscape ? 20 : KB_ROW_MIN, fit);
             if (root && root.style && typeof root.style.setProperty === 'function') {
                 root.style.setProperty('--kb-row-h', rowHeight + 'px');
                 // D: the keyboard stops above the gesture strip in
