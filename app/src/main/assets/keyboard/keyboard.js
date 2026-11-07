@@ -57,6 +57,7 @@
         "最近": "Recent",
         "引号": "Quotes",
         "货币": "Currency",
+        "更多": "More",
         "离线翻译": "Offline translate",
         "源语言": "Source language",
         "目标语言": "Target language",
@@ -697,8 +698,10 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
         ['“', '”', '‘', '’', '《', '》', '〈', '〉', '…'],
     ];
     // 英文常用：Gboard 符号页同款键位。行三首键 =\< 是「更多符号」
-    // 键（跳英文引号页），不是字符；它与末位 ⌫ 各占 1.5 列。
+    // 键，不是字符；它与末位 ⌫ 各占 1.5 列。点它进「更多」分类（Gboard
+    // 符号二页同款键位），那页首键 ?123 再回常用。
     const SYM_MORE = '=\\<';
+    const SYM_BACK = '?123';
     const EN_COMMON_ROWS = [
         ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
         ['@', '#', '$', '_', '&', '-', '+', '(', ')', '/'],
@@ -1148,6 +1151,15 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             id: 'quote', label: '引号',
             // 中/En paired like 常用 - rows come from VARIANT_TABLES.
             rows: null,
+        },
+        // 更多：=\< 的落点。键位照 Gboard 符号二页；<、> 仍在「引号」页。
+        {
+            id: 'more', label: '更多',
+            rows: [
+                ['~', '`', '|', '•', '√', 'π', '÷', '×', '§', '∆'],
+                ['£', '¢', '€', '¥', '^', '°', '=', '{', '}', '\\'],
+                [SYM_BACK, '%', '©', '®', '™', '✓', '[', ']'],
+            ],
         },
         {
             id: 'money', label: '货币',
@@ -5960,13 +5972,13 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             });
         }
 
-        /** 常用(En) 的 =\< 键：切到英文引号页（[ ] { } < > ~ ^ | \ 等）。 */
-        jumpToEnQuote() {
-            this.tableVariants.quote = 'en';
-            this.symbolCat = 'quote';
+        /** 常用(En) 的 =\< 键进「更多」，更多页的 ?123 键回常用(En)。 */
+        jumpToSymbolCat(catId) {
+            if (catId === 'common') this.tableVariants.common = 'en';
+            this.symbolCat = catId;
             this.renderSymbolCats();
             this.renderSymbols();
-            const tab = document.querySelector('[data-sym-cat="quote"]');
+            const tab = document.querySelector('[data-sym-cat="' + catId + '"]');
             if (tab && tab.scrollIntoView) {
                 tab.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
             }
@@ -6617,7 +6629,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 for (const row of this.commonRows()) {
                     for (const value of row) {
                         if (values.length >= 29) break;
-                        if (value === SYM_MORE || /^[0-9]$/.test(value)) continue;
+                        if (value === SYM_MORE || value === SYM_BACK || /^[0-9]$/.test(value)) continue;
                         if (!values.includes(value)) values.push(value);
                     }
                 }
@@ -6785,16 +6797,18 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 const row = this.row();
                 let slice = values.slice(r * 10, r * 10 + 10);
                 if (r === 2) slice.length = 9; // last cell of row 3 is backspace
-                const hasMore = r === 2 && slice[0] === SYM_MORE;
+                const hasMore = r === 2 && (slice[0] === SYM_MORE || slice[0] === SYM_BACK);
                 if (hasMore) {
                     // =\< 与 ⌫ 各 1.5 列，其余 7 格 → 恰好 10 列，不留空位。
                     slice = slice.filter(v => v !== '' && v !== undefined);
                     row.classList.add('sym-more-row');
                 }
                 slice.forEach(value => {
-                    if (value === SYM_MORE) {
-                        row.append(this.specialKey('more-symbols', SYM_MORE,
-                            () => this.jumpToEnQuote(), 'kb-special sym-more'));
+                    if (value === SYM_MORE || value === SYM_BACK) {
+                        row.append(this.specialKey(
+                            value === SYM_MORE ? 'more-symbols' : 'back-symbols', value,
+                            () => this.jumpToSymbolCat(value === SYM_MORE ? 'more' : 'common'),
+                            'kb-special sym-more'));
                         return;
                     }
                     if (value === '') {

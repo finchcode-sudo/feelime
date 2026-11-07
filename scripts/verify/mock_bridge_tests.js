@@ -2405,12 +2405,12 @@ test('symbol category strip lists all batches with stable keys', {since: '3.28.0
     const cats = [...world.document.querySelectorAll('[data-sym-cat]')];
     equal(
         cats.map(c => c.dataset.symCat).join(','),
-        'common,recent,quote,money,math,script,special,arrows,num,pinyin,hira,kata,greek',
+        'common,recent,quote,more,money,math,script,special,arrows,num,pinyin,hira,kata,greek',
         'category keys frozen',
     );
     equal(
         cats.map(c => c.textContent).join(','),
-        '常用En,最近,引号En,货币,数学,上下标,特殊,方向,序号,拼音,平假名,片假名,希腊',
+        '常用En,最近,引号En,更多,货币,数学,上下标,特殊,方向,序号,拼音,平假名,片假名,希腊',
         'labels aligned with the category list (paired tables carry 中/En badges)',
     );
     // Japanese kana and Greek are newer symbol-layer additions.
@@ -2436,6 +2436,23 @@ test('symbol category strip lists all batches with stable keys', {since: '3.28.0
     // The backspace key occupies the last cell of row 3 in every category.
     equal(world.$('symGrid').children[2].children[9].dataset.role, 'backspace',
         'row 3 ends with backspace');
+});
+
+test('英文常用 =\\< 进「更多」页，?123 回常用', () => {
+    const world = fresh();
+    world.tap([...world.document.querySelectorAll('.kb-special')].find(
+        el => el.textContent === '123',
+    ));
+    const row = n => [...world.$('symGrid').children[n].children];
+    const rowText = n => row(n).map(k => k.textContent).join('');
+    equal(rowText(1), '@#$_&-+()/', 'en common row 2');
+    world.tap(row(2).find(k => k.dataset.role === 'more-symbols'));
+    equal(rowText(0), '~`|•√π÷×§∆', 'more page row 1');
+    equal(rowText(1), '£¢€¥^°={}\\', 'more page row 2');
+    equal(rowText(2), '?123%©®™✓[]', 'more page row 3');
+    equal(row(2)[row(2).length - 1].dataset.role, 'backspace', 'row 3 ends with backspace');
+    world.tap(row(2).find(k => k.dataset.role === 'back-symbols'));
+    equal(rowText(1), '@#$_&-+()/', 'back on the en common page');
 });
 
 test('every 123 entry resets to the 常用 category', () => {
