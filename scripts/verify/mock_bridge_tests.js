@@ -2405,12 +2405,12 @@ test('symbol category strip lists all batches with stable keys', {since: '3.28.0
     const cats = [...world.document.querySelectorAll('[data-sym-cat]')];
     equal(
         cats.map(c => c.dataset.symCat).join(','),
-        'common,recent,quote,money,math,special,arrows,num,pinyin,hira,kata,greek',
+        'common,recent,quote,money,math,script,special,arrows,num,pinyin,hira,kata,greek',
         'category keys frozen',
     );
     equal(
         cats.map(c => c.textContent).join(','),
-        '常用En,最近,引号En,货币,数学,特殊,方向,序号,拼音,平假名,片假名,希腊',
+        '常用En,最近,引号En,货币,数学,上下标,特殊,方向,序号,拼音,平假名,片假名,希腊',
         'labels aligned with the category list (paired tables carry 中/En badges)',
     );
     // Japanese kana and Greek are newer symbol-layer additions.
