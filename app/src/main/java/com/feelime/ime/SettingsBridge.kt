@@ -2357,7 +2357,7 @@ class SettingsBridge(
 
     /** 组装诊断文本并复制到剪贴板（设置页「复制诊断信息」）。剪贴板在 API 33+
      *  标记为敏感，不进键盘剪贴板历史。复制版只给「读得动」的摘要：事件只留
-     *  最近 [CLIP_DIAG_MAX_EVENT_LINES] 行（更早的折成一行计数），tombstone
+     *  最近 [CLIP_DIAG_MAX_EVENT_LINES] 行（先滤掉触摸/引擎逐键噪声；更早的折成一行计数），tombstone
      *  不再内嵌 base64，只留名称/大小/sha256 一行。
      *  函数名沿用 exportDiagnostics（设置页 JS / 验证脚本按此名调用）。 */
     @JavascriptInterface
@@ -2365,18 +2365,23 @@ class SettingsBridge(
         Diagnostics.refresh(context)
         val tombstones = Diagnostics.tombstoneAttachments()
         val events = Diagnostics.snapshot()
-        val shown = events.takeLast(CLIP_DIAG_MAX_EVENT_LINES)
+        // 先滤掉高频噪声（触摸轨迹、引擎逐键状态、触摸轨迹的续行），再取最近
+        // N 行：否则打几个字就把窗口/方向/悬浮这类生命周期事件挤出去了。
+        val noiseMarks = listOf(" js touchTrace ", " touchN ", " js+ ",
+            " engine stateApplied", " engine pushState", " engine replayQueue")
+        val signal = events.filterNot { line -> noiseMarks.any { line.contains(it) } }
+        val shown = signal.takeLast(CLIP_DIAG_MAX_EVENT_LINES)
         val header = listOf(
             "Feelime 诊断导出 ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
                 .format(java.util.Date())}",
             "app=${BuildConfig.VERSION_NAME} keyboard=${keyboardVersion()} " +
                 "android=${android.os.Build.VERSION.SDK_INT} device=${android.os.Build.MODEL}",
             Diagnostics.liveState,
-            "events=${Diagnostics.totalLogged()} logged, ${shown.size}/${events.size} lines copied",
+            "events=${Diagnostics.totalLogged()} logged, ${shown.size}/${signal.size} lines copied (${events.size - signal.size} noise lines filtered)",
             "--- events ---",
         )
-        val omitted = if (events.size > shown.size)
-            listOf("(earlier ${events.size - shown.size} lines omitted)") else emptyList()
+        val omitted = if (signal.size > shown.size)
+            listOf("(earlier ${signal.size - shown.size} lines omitted)") else emptyList()
         val tombstoneLines = tombstones.map { attachment ->
             "--- tombstone ${attachment.name} bytes=${attachment.bytes.size} " +
                 "sha256=${attachment.sha256} truncated=${attachment.truncated} (content not copied) ---"
