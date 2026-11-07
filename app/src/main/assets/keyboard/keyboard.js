@@ -725,8 +725,9 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
     };
     // The nine-pad's left strip - symbols that pair well with digits
     // (phone numbers, prices, units, simple math). Literal commits.
-    const NUM_PAD_SYMBOLS = ['@', '%', '-', '+', '/', '*', '(', ')',
-        '#', '$', '&', '_', '=', '~', '^', ':', ';'];
+    // 四则运算符打头（+ - * /），随后 @ %，其余按数字场景常用度排。
+    const NUM_PAD_SYMBOLS = ['+', '-', '*', '/', '@', '%', '=', '(', ')',
+        '$', '#', '&', '_', '~', '^', ':', ';'];
 
     /* ===== 九宫格 T9（微信式键面，docs/design/t9.md） ===== */
     // 左列空闲态的常用字符：中文标点，与 1 键(@#.)的西文/技术符号后选
