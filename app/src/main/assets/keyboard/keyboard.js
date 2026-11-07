@@ -695,10 +695,13 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
         ['，', '。', '、', '；', '：', '？', '！', '～', '（', '）'],
         ['“', '”', '‘', '’', '《', '》', '〈', '〉', '…'],
     ];
+    // 英文常用：Gboard 符号页同款键位。行三首键 =\< 是「更多符号」
+    // 键（跳英文引号页），不是字符；它与末位 ⌫ 各占 1.5 列。
+    const SYM_MORE = '=\\<';
     const EN_COMMON_ROWS = [
         ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
-        ['-', '/', ':', ';', '(', ')', '&', '@', '+', '='],
-        ['.', ',', '?', '!', '"', "'", '*', '#', '%'],
+        ['@', '#', '$', '_', '&', '-', '+', '(', ')', '/'],
+        [SYM_MORE, '*', '"', "'", ':', ';', '!', '?'],
     ];
     // The 引号 table's zh side (the only quote table until the 中/En
     // toggle landed): fullwidth CJK quotes and brackets.
@@ -5941,6 +5944,18 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             });
         }
 
+        /** 常用(En) 的 =\< 键：切到英文引号页（[ ] { } < > ~ ^ | \ 等）。 */
+        jumpToEnQuote() {
+            this.tableVariants.quote = 'en';
+            this.symbolCat = 'quote';
+            this.renderSymbolCats();
+            this.renderSymbols();
+            const tab = document.querySelector('[data-sym-cat="quote"]');
+            if (tab && tab.scrollIntoView) {
+                tab.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+            }
+        }
+
         /** The variant a paired table (常用/引号) shows: the pinned one
          * (second tap on the active tab flips it) or the default - both
          * follow the input mode (issue #48: 引号 used to default to zh,
@@ -6586,6 +6601,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 for (const row of this.commonRows()) {
                     for (const value of row) {
                         if (values.length >= 29) break;
+                        if (value === SYM_MORE) continue;
                         if (!values.includes(value)) values.push(value);
                     }
                 }
@@ -6751,9 +6767,20 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             while (values.length < 29) values.push('');
             for (let r = 0; r < 3; r++) {
                 const row = this.row();
-                const slice = values.slice(r * 10, r * 10 + 10);
+                let slice = values.slice(r * 10, r * 10 + 10);
                 if (r === 2) slice.length = 9; // last cell of row 3 is backspace
+                const hasMore = r === 2 && slice[0] === SYM_MORE;
+                if (hasMore) {
+                    // =\< 与 ⌫ 各 1.5 列，其余 7 格 → 恰好 10 列，不留空位。
+                    slice = slice.filter(v => v !== '' && v !== undefined);
+                    row.classList.add('sym-more-row');
+                }
                 slice.forEach(value => {
+                    if (value === SYM_MORE) {
+                        row.append(this.specialKey('more-symbols', SYM_MORE,
+                            () => this.jumpToEnQuote(), 'kb-special sym-more'));
+                        return;
+                    }
                     if (value === '') {
                         const blank = document.createElement('span');
                         blank.className = 'sym-blank';

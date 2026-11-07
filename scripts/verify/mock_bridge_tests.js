@@ -2072,7 +2072,7 @@ test('rotation keeps the pinned 常用 variant; mode switch resets it', {since: 
     world.hello({ orientation: 'landscape', mode: 'pinyin' });
     equal(tab().querySelector('.cat-sub').textContent, 'En', 'badge survives rotation');
     equal([...world.$('symGrid').children[1].children].map(k => k.textContent).join(''),
-        '-/:;()&@+=', 'grid still matches the badge');
+        '@#$_&-+()/', 'grid still matches the badge');
     // A REAL mode switch resets to the new mode's default, live.
     world.hello({ orientation: 'landscape', mode: 'double-pinyin' });
     equal(tab().querySelector('.cat-sub').textContent, '中', 'mode switch resets the pin');
@@ -2360,7 +2360,7 @@ test('second tap on the active 常用 tab flips the zh/en table', {since: '3.28.
     equal(rows(), '，。、；：？！～（）', 'mode default is the zh table');
     world.tap(commonTab);
     equal(commonTab.querySelector('.cat-sub').textContent, 'En', 'badge flips');
-    equal(rows(), '-/:;()&@+=', 'grid re-renders from the en table');
+    equal(rows(), '@#$_&-+()/', 'grid re-renders from the en table');
     equal(world.$('symGrid').children[0].children[0].textContent, '1', 'digits still lead row 1');
     world.tap(commonTab);
     equal(commonTab.querySelector('.cat-sub').textContent, '中', 'toggles back');
@@ -2375,7 +2375,7 @@ test('second tap on the active 常用 tab flips the zh/en table', {since: '3.28.
     equal(tab.querySelector('.cat-sub').textContent, 'En', 'direct keeps the en default');
     equal(
         [...world.$('symGrid').children[1].children].map(k => k.textContent).join(''),
-        '-/:;()&@+=',
+        '@#$_&-+()/',
         'en rows without a stale pin',
     );
 });

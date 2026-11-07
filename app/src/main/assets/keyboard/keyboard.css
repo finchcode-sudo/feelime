@@ -857,6 +857,10 @@ body.flick-swap .kb-key.zh-punct .kb-alt { top: auto; bottom: 12%; }
     overflow: hidden;
 }
 .sym-blank { flex: 1; min-width: 0; height: var(--kb-row-h, 44px); background: transparent; }
+/* 英文常用行三：=\< 与 ⌫ 各 1.5 列（Gboard 符号页同款）。 */
+.sym-more-row .kb-key.sym-more,
+.sym-more-row .kb-key[data-role="backspace"] { flex: 1.5; }
+.kb-key.sym-more { font-size: 16px; }
 /* 分词 (syllable separator) rides in the Shift slot of Chinese layouts. */
 .sep { font-size: 14px; font-weight: 500; }
 .kb-layer[hidden] { display: none; }
