@@ -735,8 +735,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
     private fun applyLandscapeNavBars() {
         val w = window?.window ?: return
         val ctrl = androidx.core.view.WindowCompat.getInsetsController(w, w.decorView)
-        if (resources.configuration.orientation ==
-            android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        if (isLandscapeNow()
         ) {
             ctrl.systemBarsBehavior =
                 androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -749,8 +748,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
     /** puff 同款的补刀：ROM 吞掉首次 hide 时，600ms 后仍可见就再来一次。 */
     private val navRetryHide = Runnable {
         val w = window?.window ?: return@Runnable
-        if (resources.configuration.orientation !=
-            android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        if (!isLandscapeNow()
         ) return@Runnable
         val insets = w.decorView.rootWindowInsets ?: return@Runnable
         if (android.os.Build.VERSION.SDK_INT >= 30 &&
@@ -1213,7 +1211,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
             }
         }
         if (floatRect != null && floatFits &&
-            resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+            isLandscapeNow()
         ) {
             // 悬浮态：宿主 App 不被缩小（内容/可见顶边都落在窗口底），只有卡片
             // 可触摸；弹层带打开时把卡片上方的带一并放进可触摸区。
@@ -1271,7 +1269,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
     private fun floatBandPx(): Int {
         val metrics = resources.displayMetrics
         val landscape =
-            resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+            isLandscapeNow()
         val budget = if (landscape) realHeightPixels() * 30 else metrics.heightPixels * 40
         // #39 上限 100% 时（codex 评审 P2）：内容+安全区+留白已占满真屏，
         // 带再叠上去会把窗口顶出屏外（首行键被裁、弹层全灭）。带按屏幕
@@ -1289,7 +1287,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
     private fun contentHeightPx(desiredHeightPx: Int): Int {
         val screenH = resources.displayMetrics.heightPixels
         val landscape =
-            resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+            isLandscapeNow()
         val base = if (keyboardHeightOverride > 0) keyboardHeightOverride else desiredHeightPx
         val height = when {
             landscape && screenH > 0 ->
@@ -1325,7 +1323,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
      *  整体偏一侧，非对称留白难看；对称后左右翻转旋转值也不变。 */
     private fun safeSideInsetsCss(): Pair<Int, Int> {
         val landscape =
-            resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+            isLandscapeNow()
         if (!landscape) return 0 to 0
         // minSdk=26：getDisplayCutout() 是 API 28 加入的，安全调用 ?. 只挡
         // null 不挡缺方法——26/27 上横屏推 hello 就 NoSuchMethodError 杀进程
@@ -1340,8 +1338,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
     /** #39：横屏整体不透明度（%）。<100 时窗口涂层（导航栏/窗口背景）
      *  也要透明，否则涂层挡在半透键盘下面白搭。 */
     private fun landscapeOpacityPct(): Int {
-        if (resources.configuration.orientation !=
-            android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        if (!isLandscapeNow()
         ) return 100
         return com.feelime.ime.readLandscapeOpacity(this)
     }
@@ -2143,7 +2140,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
             com.feelime.ime.engine.AssociationStore.prewarm(this)
         }
         val landscape =
-            resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+            isLandscapeNow()
         val payload = JSONObject()
             .put("nativeApiVersion", NATIVE_API_VERSION)
             .put("capabilities", JSONArray(CAPABILITIES.toList()))
@@ -3086,8 +3083,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
                 "bottomPad" -> {
                     val pad = value.toIntOrNull()
                     if (pad == null || pad !in BOTTOM_PAD_STEPS) return@guarded
-                    val landscape = resources.configuration.orientation ==
-                        android.content.res.Configuration.ORIENTATION_LANDSCAPE
+                    val landscape = isLandscapeNow()
                     keyboardPrefs.edit().putInt(
                         if (landscape) PREF_BOTTOM_PAD_DP_LANDSCAPE else PREF_BOTTOM_PAD_DP_PORTRAIT,
                         pad,
@@ -3482,8 +3478,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         @JavascriptInterface
         fun setTransientKeyboardHeight(heightCssPx: Int, token: String) =
             guarded(token, limited = false) {
-                val landscape = resources.configuration.orientation ==
-                    android.content.res.Configuration.ORIENTATION_LANDSCAPE
+                val landscape = isLandscapeNow()
                 val target = if (heightCssPx <= 0) {
                     storedKeyboardHeight()
                 } else {
@@ -3501,7 +3496,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
 
         private fun setKeyboardHeightInternal(heightCssPx: Int, immediate: Boolean) {
             val landscape =
-                resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+                isLandscapeNow()
             if (heightCssPx == 0) {
                 // Reset this orientation; do not let a queued drag save put
                 // the old value back after the user restores the default.
@@ -4192,6 +4187,26 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
+    /** 横竖屏按「真屏」宽高判断，不看 resources.configuration.orientation：
+     *  横屏游戏里从侧边栏拉起竖屏小窗时，ColorOS 会让输入法服务的配置方向
+     *  短暂变成竖屏（2026-11-08 诊断：窗口 vw=792>vh=328，页面却 land=0），
+     *  页面于是按竖屏排版铺满横屏窗口，闪一下才缩回悬浮卡。屏幕朝向才是
+     *  键盘该跟随的方向。 */
+    private fun isLandscapeNow(): Boolean {
+        if (android.os.Build.VERSION.SDK_INT >= 30) {
+            val b = getSystemService(android.view.WindowManager::class.java)
+                ?.maximumWindowMetrics?.bounds
+            if (b != null && b.width() > 0 && b.height() > 0) return b.width() > b.height()
+        } else {
+            val real = android.util.DisplayMetrics()
+            @Suppress("DEPRECATION")
+            display?.getRealMetrics(real)
+            if (real.widthPixels > 0 && real.heightPixels > 0) return real.widthPixels > real.heightPixels
+        }
+        return resources.configuration.orientation ==
+            android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    }
+
     /** Real display height (physical px, rotation-aware). The APP-space
      * heightPixels excludes the system bars, so a cap derived from it sits
      * below the keyboard's own content minimum once Grew the
@@ -4215,7 +4230,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
     private fun storedKeyboardHeight(): Int {
         val prefs = getSharedPreferences("feelime_keyboard", MODE_PRIVATE)
         val landscape =
-            resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+            isLandscapeNow()
         return prefs.getInt(if (landscape) "keyboard_height_landscape" else "keyboard_height_portrait", 0)
     }
 
@@ -4330,8 +4345,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         val floor = oplusInsetFloor()
         if (floor > 0) return maxOf(reported, floor)
         if (reported > 0) return reported
-        if (resources.configuration.orientation !=
-            android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        if (!isLandscapeNow()
         ) return 0
         if (navInsetFallback < 0) {
             val id = resources.getIdentifier("navigation_bar_height", "dimen", "android")
@@ -4392,8 +4406,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
             // ——横屏且导航条可见即刻再藏。hide 后 visible 变 false 不再
             // 触发本分支，无循环。
             if (android.os.Build.VERSION.SDK_INT >= 30 &&
-                resources.configuration.orientation ==
-                android.content.res.Configuration.ORIENTATION_LANDSCAPE &&
+                isLandscapeNow() &&
                 insets.isVisible(android.view.WindowInsets.Type.navigationBars())
             ) {
                 applyLandscapeNavBars()
