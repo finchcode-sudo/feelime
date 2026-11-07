@@ -2268,7 +2268,10 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
                 "visRepairs=$visibilityRepairs " +
                 "pkg=${currentInputEditorInfo?.packageName}",
         )
-        Diagnostics.log("bridge", "helloPushed view=${System.identityHashCode(keyboardView)}")
+        Diagnostics.log("bridge", "helloPushed view=${System.identityHashCode(keyboardView)} " +
+            "orient=${if (isLandscapeNow()) "land" else "port"} " +
+            "cfg=${resources.configuration.orientation} " +
+            "display=${realDisplaySize()?.let { "${it.first}x${it.second}" }}")
         evaluate("window.Feelime && window.Feelime.onBridgeHello && window.Feelime.onBridgeHello($payload)")
     }
 
@@ -4187,22 +4190,24 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
-    /** 横竖屏按「真屏」宽高判断，不看 resources.configuration.orientation：
-     *  横屏游戏里从侧边栏拉起竖屏小窗时，ColorOS 会让输入法服务的配置方向
-     *  短暂变成竖屏（2026-11-08 诊断：窗口 vw=792>vh=328，页面却 land=0），
-     *  页面于是按竖屏排版铺满横屏窗口，闪一下才缩回悬浮卡。屏幕朝向才是
-     *  键盘该跟随的方向。 */
+    /** 默认显示器的真实宽高（物理 px，随屏幕旋转）。直接问 DisplayManager，
+     *  不经输入法服务自己的 Configuration：maximumWindowMetrics / display 都
+     *  由服务的应用配置推出，横屏游戏里侧边栏拉起竖屏小窗时那份配置会短暂
+     *  停在竖屏（2026-11-08 诊断：c8a179e 仍然 hello=portrait，窗口却
+     *  vw=792>vh=328），所以按它判断方向是错的。取不到返回 null。 */
+    private fun realDisplaySize(): Pair<Int, Int>? {
+        val d = getSystemService(android.hardware.display.DisplayManager::class.java)
+            ?.getDisplay(android.view.Display.DEFAULT_DISPLAY) ?: return null
+        val m = android.util.DisplayMetrics()
+        @Suppress("DEPRECATION")
+        d.getRealMetrics(m)
+        return if (m.widthPixels > 0 && m.heightPixels > 0) m.widthPixels to m.heightPixels else null
+    }
+
+    /** 横竖屏按「真屏」宽高判断，不看 resources.configuration.orientation（见
+     *  [realDisplaySize]）。屏幕朝向才是键盘该跟随的方向。 */
     private fun isLandscapeNow(): Boolean {
-        if (android.os.Build.VERSION.SDK_INT >= 30) {
-            val b = getSystemService(android.view.WindowManager::class.java)
-                ?.maximumWindowMetrics?.bounds
-            if (b != null && b.width() > 0 && b.height() > 0) return b.width() > b.height()
-        } else {
-            val real = android.util.DisplayMetrics()
-            @Suppress("DEPRECATION")
-            display?.getRealMetrics(real)
-            if (real.widthPixels > 0 && real.heightPixels > 0) return real.widthPixels > real.heightPixels
-        }
+        realDisplaySize()?.let { return it.first > it.second }
         return resources.configuration.orientation ==
             android.content.res.Configuration.ORIENTATION_LANDSCAPE
     }
@@ -4214,6 +4219,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
      * device (AVD 1080x2400: cap 508px vs content 522px).
      * caps must be fractions of the REAL screen. */
     private fun realHeightPixels(): Int {
+        realDisplaySize()?.let { return it.second }
         return if (android.os.Build.VERSION.SDK_INT >= 30) {
             val wm = getSystemService(android.view.WindowManager::class.java)
             wm?.maximumWindowMetrics?.bounds?.height() ?: resources.displayMetrics.heightPixels
