@@ -5652,10 +5652,15 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
         }
 
         recent() {
-            try { return JSON.parse(localStorage.getItem('feelime_symbol_recent') || '[]'); } catch (_) { return []; }
+            // 最近不收阿拉伯数字：同时滤掉旧版本已落盘的数字记录。
+            try {
+                return JSON.parse(localStorage.getItem('feelime_symbol_recent') || '[]')
+                    .filter(item => !/^[0-9]$/.test(item));
+            } catch (_) { return []; }
         }
 
         remember(value) {
+            if (/^[0-9]$/.test(value)) return;
             const values = [value, ...this.recent().filter(item => item !== value)].slice(0, 16);
             localStorage.setItem('feelime_symbol_recent', JSON.stringify(values));
         }
@@ -6602,7 +6607,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 for (const row of this.commonRows()) {
                     for (const value of row) {
                         if (values.length >= 29) break;
-                        if (value === SYM_MORE) continue;
+                        if (value === SYM_MORE || /^[0-9]$/.test(value)) continue;
                         if (!values.includes(value)) values.push(value);
                     }
                 }
