@@ -1129,6 +1129,12 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         super.onWindowShown()
         Diagnostics.log("ui", "windowShown")
         armUiProbes()
+        // 闪烁根治（2026-11-08 诊断）：窗口隐藏期间方向变了（横屏游戏里键盘
+        // 藏着，页面停在旧的 land=0），弹出时页面先按旧方向排版——竖屏布局
+        // 铺满横屏窗口——要等下一次无关的 hello 才纠正，0.x 秒的整屏闪烁
+        // 就是这段空档。每次窗口弹出都补一次 hello，把当前方向/悬浮态在
+        // 首帧前后立刻推给页面。
+        pushBridgeHello()
         // #39 横屏导航条隐藏重放（ROM 焦点变化后会偷恢复）+ 双档补刀
         // （600ms/2500ms——ColorOS 实测在弹出后 1-3s 才把导航条恢复回来，
         // 单档 600ms 检查时还藏着，真机 t0 截图 pill 复实录）。
