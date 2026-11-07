@@ -980,7 +980,7 @@ test('diagnostics toggle records via bridge; copy button exports', () => {
     change.handler({ target: box });
     equal(world.lastCall('setDiagnostics').args, [true, world.token], 'setDiagnostics + token');
     assert(world.$('diagNote').textContent.length > 0, 'note tells the user recording started');
-    // 导出按钮：开关打开 → exportDiagnostics；未打开 → 只提示不导出。
+    // 复制按钮：开关打开 → exportDiagnostics；未打开 → 只提示不导出。
     world.push({ ...BASE_STATE, diagnosticsOn: true });
     world.$('btnExportDiagnostics').click();
     equal(world.lastCall('exportDiagnostics').args, [world.token], 'export button exports');

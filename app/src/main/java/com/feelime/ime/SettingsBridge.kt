@@ -515,6 +515,8 @@ const val KEY_SOUND_STYLE_DEFAULT = "default"
 const val KEY_SOUND_STYLE_KEYPRESS = "keypress"
 const val KEY_SOUND_STYLE_CUSTOM = "custom"
 private const val KEY_SOUND_MAX_BYTES = 2 * 1024 * 1024
+/** 诊断文本进剪贴板的字符上限（Binder 事务约 1MB，留足余量）。 */
+private const val CLIP_DIAG_MAX_CHARS = 300_000
 
 fun keySoundStyle(context: Context): String {
     val prefs = context.getSharedPreferences(KEYBOARD_PREFS_FILE, Context.MODE_PRIVATE)
@@ -2353,8 +2355,10 @@ class SettingsBridge(
         pushState()
     }
 
-    /** 组装诊断导出为文本文件并弹出系统分享面板（微信/邮件等均可收），
-     *  返回文件名供 JS 提示。不再进剪贴板（2026-09-18 用户反馈）。 */
+    /** 组装诊断文本并复制到剪贴板（设置页「复制诊断信息」）。剪贴板在 API 33+
+     *  标记为敏感，不进键盘剪贴板历史。tombstone 全量 base64 体积可能超过
+     *  剪贴板事务上限，超限时只丢 tombstone 段并在文末注明（事件日志照常复制）。
+     *  函数名沿用 exportDiagnostics（设置页 JS / 验证脚本按此名调用）。 */
     @JavascriptInterface
     fun exportDiagnostics(token: String) = guarded(token) {
         Diagnostics.refresh(context)
@@ -2370,31 +2374,25 @@ class SettingsBridge(
             "--- events ---",
         )
         // v3：tombstone 全量 base64 内嵌（崩溃取证——native 栈在系统
-        // protobuf 里，报告人只导这份 txt 就带上完整证据，host 离线解）。
+        // protobuf 里，报告人粘贴这份文本就带上完整证据，host 离线解）。
         val tombstoneLines = tombstones.flatMap { attachment ->
             val b64 = android.util.Base64.encodeToString(attachment.bytes, android.util.Base64.NO_WRAP)
             listOf("--- tombstone ${attachment.name} bytes=${attachment.bytes.size} " +
                 "sha256=${attachment.sha256} truncated=${attachment.truncated} base64 ---") + b64.chunked(120)
         }
-        val text = (header + events + tombstoneLines).joinToString("\n")
-        val stamp = java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US)
-            .format(java.util.Date())
-        val file = File(File(context.cacheDir, "exports"), "feelime-diagnostics-$stamp.txt")
-        file.parentFile?.mkdirs()
-        file.writeText(text)
+        val base = (header + events).joinToString("\n")
+        val full = (header + events + tombstoneLines).joinToString("\n")
+        val text = if (full.length <= CLIP_DIAG_MAX_CHARS) full
+        else base + "\n--- tombstone omitted: too large for the clipboard ---"
         Handler(Looper.getMainLooper()).post {
             runCatching {
-                val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
-                val send = Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_STREAM, uri)
-                    putExtra(Intent.EXTRA_SUBJECT, file.name)
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                val clip = ClipData.newPlainText("feelime-diagnostics", text)
+                if (Build.VERSION.SDK_INT >= 33) {
+                    clip.description.extras = PersistableBundle().apply {
+                        putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true)
+                    }
                 }
-                // IME service 无任务栈，分享面板必须 NEW_TASK
-                context.startActivity(
-                    Intent.createChooser(send, file.name)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                clipboardManager().setPrimaryClip(clip)
             }.onFailure { Log.w(TAG, "exportDiagnostics failed", it) }
         }
     }
