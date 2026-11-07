@@ -515,8 +515,8 @@ const val KEY_SOUND_STYLE_DEFAULT = "default"
 const val KEY_SOUND_STYLE_KEYPRESS = "keypress"
 const val KEY_SOUND_STYLE_CUSTOM = "custom"
 private const val KEY_SOUND_MAX_BYTES = 2 * 1024 * 1024
-/** 诊断文本进剪贴板的字符上限（Binder 事务约 1MB，留足余量）。 */
-private const val CLIP_DIAG_MAX_CHARS = 300_000
+/** 复制诊断时保留的最近事件行数（更早的折叠成一行计数）。 */
+private const val CLIP_DIAG_MAX_EVENT_LINES = 150
 
 fun keySoundStyle(context: Context): String {
     val prefs = context.getSharedPreferences(KEYBOARD_PREFS_FILE, Context.MODE_PRIVATE)
@@ -2356,34 +2356,32 @@ class SettingsBridge(
     }
 
     /** 组装诊断文本并复制到剪贴板（设置页「复制诊断信息」）。剪贴板在 API 33+
-     *  标记为敏感，不进键盘剪贴板历史。tombstone 全量 base64 体积可能超过
-     *  剪贴板事务上限，超限时只丢 tombstone 段并在文末注明（事件日志照常复制）。
+     *  标记为敏感，不进键盘剪贴板历史。复制版只给「读得动」的摘要：事件只留
+     *  最近 [CLIP_DIAG_MAX_EVENT_LINES] 行（更早的折成一行计数），tombstone
+     *  不再内嵌 base64，只留名称/大小/sha256 一行。
      *  函数名沿用 exportDiagnostics（设置页 JS / 验证脚本按此名调用）。 */
     @JavascriptInterface
     fun exportDiagnostics(token: String) = guarded(token) {
         Diagnostics.refresh(context)
         val tombstones = Diagnostics.tombstoneAttachments()
         val events = Diagnostics.snapshot()
+        val shown = events.takeLast(CLIP_DIAG_MAX_EVENT_LINES)
         val header = listOf(
             "Feelime 诊断导出 ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
                 .format(java.util.Date())}",
             "app=${BuildConfig.VERSION_NAME} keyboard=${keyboardVersion()} " +
                 "android=${android.os.Build.VERSION.SDK_INT} device=${android.os.Build.MODEL}",
             Diagnostics.liveState,
-            "events=${Diagnostics.totalLogged()} logged, ${events.size} lines exported",
+            "events=${Diagnostics.totalLogged()} logged, ${shown.size}/${events.size} lines copied",
             "--- events ---",
         )
-        // v3：tombstone 全量 base64 内嵌（崩溃取证——native 栈在系统
-        // protobuf 里，报告人粘贴这份文本就带上完整证据，host 离线解）。
-        val tombstoneLines = tombstones.flatMap { attachment ->
-            val b64 = android.util.Base64.encodeToString(attachment.bytes, android.util.Base64.NO_WRAP)
-            listOf("--- tombstone ${attachment.name} bytes=${attachment.bytes.size} " +
-                "sha256=${attachment.sha256} truncated=${attachment.truncated} base64 ---") + b64.chunked(120)
+        val omitted = if (events.size > shown.size)
+            listOf("(earlier ${events.size - shown.size} lines omitted)") else emptyList()
+        val tombstoneLines = tombstones.map { attachment ->
+            "--- tombstone ${attachment.name} bytes=${attachment.bytes.size} " +
+                "sha256=${attachment.sha256} truncated=${attachment.truncated} (content not copied) ---"
         }
-        val base = (header + events).joinToString("\n")
-        val full = (header + events + tombstoneLines).joinToString("\n")
-        val text = if (full.length <= CLIP_DIAG_MAX_CHARS) full
-        else base + "\n--- tombstone omitted: too large for the clipboard ---"
+        val text = (header + omitted + shown + tombstoneLines).joinToString("\n")
         Handler(Looper.getMainLooper()).post {
             runCatching {
                 val clip = ClipData.newPlainText("feelime-diagnostics", text)
