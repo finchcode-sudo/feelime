@@ -50,7 +50,8 @@ object CustomPhraseStore {
     // 16：builtin-words.tsv 新增「蚩奼」。
     // 17：英文内置词新增 Pornhub / porn。
     // 18：builtin-words.tsv 新增「郑丽文」。
-    private const val DERIVE_VERSION = 18
+    // 19：builtin-words.tsv 新增「怎么回事」（zenme / zenmo 两种码 + 简拼）。
+    private const val DERIVE_VERSION = 19
 
     private const val T9_DIGITS = "22233344455566677778889999"
 
