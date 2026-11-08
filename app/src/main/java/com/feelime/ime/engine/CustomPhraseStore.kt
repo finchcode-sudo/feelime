@@ -51,7 +51,8 @@ object CustomPhraseStore {
     // 17：英文内置词新增 Pornhub / porn。
     // 18：builtin-words.tsv 新增「郑丽文」。
     // 19：builtin-words.tsv 新增「怎么回事」（zenme / zenmo 两种码 + 简拼）。
-    private const val DERIVE_VERSION = 19
+    // 20：builtin-words.tsv 批量加入含「么」高频词的 mo 变体（scripts/generate-me-mo-variants.py）。
+    private const val DERIVE_VERSION = 20
 
     private const val T9_DIGITS = "22233344455566677778889999"
 
