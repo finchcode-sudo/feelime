@@ -51,6 +51,7 @@
         "该键盘还在准备中": "That keyboard is still preparing",
         "已截断至 200 字": "Truncated to 200 characters",
         "内容过长，最多收藏 1000 字": "Too long to save (1000 characters max)",
+        "编辑剪贴板": "Edit clipboard item",
         "通配符只能用一个": "Only one wildcard at a time",
         "日本語 Romaji": "Japanese",
         "常用": "Common",
@@ -11011,7 +11012,12 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             // custom-JSON flow still lives on the legacy strip (design §15).
             const card = document.getElementById('phraseCard');
             card.classList.remove('open');
+            card.classList.remove('pc-clip-mode');
             card.hidden = true;
+            const backTab = this.clipEditId ? 'clipboard' : 'favorites';
+            this.clipEditId = null;
+            this.clipEditOrig = null;
+            document.getElementById('phraseCardInput').maxLength = 200;
             document.getElementById('phraseCardInput').value = '';
             document.getElementById('phraseCardCode').value = '';
             document.getElementById('phraseCardRankValue').textContent = '1';
@@ -11035,7 +11041,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             // before openPanel re-captures the return layer.
             this.keyLayer = this.panelEditorKeyLayer || this.keyLayer;
             this.panelEditorKeyLayer = null;
-            this.openPanel('favorites');
+            this.openPanel(backTab);
         }
 
         savePanelEditor() {
@@ -11068,6 +11074,15 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             const text = input.value.trim();
             const code = codeEl.value.trim();
             if (!text) return;
+            if (this.clipEditId) {
+                const id = this.clipEditId;
+                if (text !== this.clipEditOrig) {
+                    this.call(() => Native.updateClipboard(id, text, this.token));
+                }
+                this.panelEditItem = null;
+                this.closePanelEditor();
+                return;
+            }
             if (this.panelEditItem) {
                 const id = this.panelEditItem.id;
                 if (text !== this.panelEditItem.text ||
@@ -11156,8 +11171,13 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
          * 走 favoritesAdd 进常用语。 */
         openClipEditor(item) {
             this.openPanelEditor(null);
-            document.getElementById('phraseCardTitle').textContent = t("编辑后收藏到常用语");
+            // 编辑 = 就地改剪贴板这一条（不进常用语；要进常用语走「收藏」）。
+            this.clipEditId = item.id;
+            this.clipEditOrig = item.text;
+            document.getElementById('phraseCardTitle').textContent = t("编辑剪贴板");
+            document.getElementById('phraseCard').classList.add('pc-clip-mode');
             const input = document.getElementById('phraseCardInput');
+            input.maxLength = 1000;
             input.value = item.text;
             if (typeof input.setSelectionRange === 'function') {
                 input.setSelectionRange(input.value.length, input.value.length);
@@ -12326,6 +12346,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
         requestState: () => {},
         commitText: text => console.log('commitText', text),
         getClipboard: () => {},
+        updateClipboard: () => {},
         removeClipboard: id => console.log('removeClipboard', id),
         pasteClipImage: id => console.log('pasteClipImage', id),
         clearClipboard: () => {},

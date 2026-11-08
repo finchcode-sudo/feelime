@@ -4117,6 +4117,15 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         }
 
         @JavascriptInterface
+        fun updateClipboard(id: String, text: String, token: String) = guarded(token, limited = true) {
+            if (!isPanelId(id) || id.startsWith("f") || text.isBlank() || text.length > MAX_JSON_CHARS) {
+                rejectedCalls += 1
+                return@guarded
+            }
+            clipboardStore.update(id, text)
+        }
+
+        @JavascriptInterface
         fun removeClipboard(id: String, token: String) = guarded(token, limited = true) {
             if (!isPanelId(id)) {
                 rejectedCalls += 1

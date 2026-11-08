@@ -3236,3 +3236,7 @@ body.landscape.kb-float #softKeyboard {
  * 保存时读到的值不变——新建留空走自动生成码、位次 1；编辑旧条目保留原码和原位次。 */
 #phraseCard .pc-code-label, #phraseCard .pc-code-row { display: none; }
 body.landscape #phraseCard .pc-input { grid-column: 1 / 3; }
+
+/* 编辑剪贴板条目：只改文字，不显示输入码/位次 */
+#phraseCard.pc-clip-mode .pc-code-label,
+#phraseCard.pc-clip-mode .pc-code-row { display: none; }

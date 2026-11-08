@@ -322,6 +322,21 @@ class ClipboardStore(private val context: Context) {
         }
     }
 
+    /** 剪贴板条目就地改文字（保留 id/时间，位置不动）。同 [remove] 的线程约定。 */
+    fun update(id: String, text: String) {
+        mainHandler.post {
+            val trimmed = text.trim()
+            if (trimmed.isEmpty() || id.startsWith("f")) return@post
+            synchronized(prefs) {
+                val items = PanelCodec.parse(prefs.getString(KEY, "").orEmpty())
+                if (items.none { it.id == id }) return@post
+                val next = items.map { if (it.id == id) it.copy(text = trimmed) else it }
+                prefs.edit().putString(KEY, PanelCodec.serialize(next)).commit()
+            }
+            onChanged?.invoke()
+        }
+    }
+
     /** See [remove] for the threading note. */
     fun clear() {
         mainHandler.post { clearNow() }
