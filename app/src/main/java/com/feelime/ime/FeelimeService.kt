@@ -1163,19 +1163,25 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         // 脱节时动一次。会话约束：实例+generation 双比对，hide 即失效。
         val gen = ++showGeneration
         val expected = keyboardView ?: return
-        main.postDelayed({
-            val cur = keyboardView
-            if (cur !== expected || gen != showGeneration) return@postDelayed
-            if (!cur.isAttachedToWindow || !cur.isShown) return@postDelayed
-            val diag = cur as? DiagWebView ?: return@postDelayed
-            if (cur.windowVisibility == android.view.View.VISIBLE &&
-                diag.lastCallbackWinVis != android.view.View.VISIBLE) {
-                visibilityRepairs += 1
-                Diagnostics.log("ui",
-                    "visibilityRepair n=$visibilityRepairs callback=${diag.lastCallbackWinVis} getter=${cur.windowVisibility}")
-                cur.dispatchWindowVisibilityChanged(android.view.View.VISIBLE)
-            }
-        }, 300)
+        // 白板/灰板闪屏（2026-11-08 录屏，竖横屏都有）：弹出后键盘区先是一整块
+        // 无键的空面板、过 0.x 秒才出键——Chromium 在窗口重新可见后还没出帧。
+        // 观察窗口从 300ms 提前成 40/120/300ms 三档：脱节就立刻补 VISIBLE，
+        // 首帧不再等满 300ms。（条件不满足时什么都不做，正常弹出零开销。）
+        for (val delayMs in longArrayOf(40L, 120L, 300L)) {
+            main.postDelayed({
+                val cur = keyboardView
+                if (cur !== expected || gen != showGeneration) return@postDelayed
+                if (!cur.isAttachedToWindow || !cur.isShown) return@postDelayed
+                val diag = cur as? DiagWebView ?: return@postDelayed
+                if (cur.windowVisibility == android.view.View.VISIBLE &&
+                    diag.lastCallbackWinVis != android.view.View.VISIBLE) {
+                    visibilityRepairs += 1
+                    Diagnostics.log("ui",
+                        "visibilityRepair n=$visibilityRepairs at=${delayMs}ms callback=${diag.lastCallbackWinVis} getter=${cur.windowVisibility}")
+                    cur.dispatchWindowVisibilityChanged(android.view.View.VISIBLE)
+                }
+            }, delayMs)
+        }
     }
 
     override fun onWindowHidden() {
