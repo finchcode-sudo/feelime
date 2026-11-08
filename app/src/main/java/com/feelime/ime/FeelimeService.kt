@@ -1093,8 +1093,13 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         keyboardView = view
         // v3 埋点（issue #13）：窗口焦点变化在 DiagWebView.onWindowFocusChanged
         // 记录（View 必经链；ViewTreeObserver 版 attach 前注册不触发）。
-        view.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+        view.addOnLayoutChangeListener { v, l, _, r, _, oldL, _, oldR, _ ->
             onBottomInsetChanged()
+            // 窗口宽度变了（转屏 / 小窗拉起）= 方向可能变了：按新宽度重推 hello，
+            // 页面不用等无关的下一次 hello 才纠正（见 isLandscapeNow）。
+            if (r - l != oldR - oldL && r - l > 0 && oldR - oldL > 0) {
+                v.post { pushBridgeHello() }
+            }
         }
         installBottomInsetWatcher()
         val host = FixedHeightInputView(keyboardHeight).apply {
@@ -2275,7 +2280,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
                 "pkg=${currentInputEditorInfo?.packageName}",
         )
         Diagnostics.log("bridge", "helloPushed view=${System.identityHashCode(keyboardView)} " +
-            "orient=${if (isLandscapeNow()) "land" else "port"} " +
+            "orient=${if (isLandscapeNow()) "land" else "port"} vw=${keyboardView?.width} " +
             "cfg=${resources.configuration.orientation} " +
             "display=${realDisplaySize()?.let { "${it.first}x${it.second}" }}")
         evaluate("window.Feelime && window.Feelime.onBridgeHello && window.Feelime.onBridgeHello($payload)")
@@ -4210,10 +4215,20 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         return if (m.widthPixels > 0 && m.heightPixels > 0) m.widthPixels to m.heightPixels else null
     }
 
-    /** 横竖屏按「真屏」宽高判断，不看 resources.configuration.orientation（见
-     *  [realDisplaySize]）。屏幕朝向才是键盘该跟随的方向。 */
+    /** 键盘当前方向。以键盘窗口自己的宽度为准：窗口比屏幕短边宽 5% 以上就是
+     *  横屏（竖屏时窗口宽 <= 短边，横屏时宽 = 长边）。
+     *  不能信系统接口：2026-11-08 真机诊断，横屏游戏里从侧边栏拉起应用时
+     *  hello 日志 orient=port cfg=1 display=1080x2378（配置、DisplayManager、
+     *  maximumWindowMetrics 全报竖屏），而键盘窗口实为 2378 宽、页面视口
+     *  792x328——页面被告知竖屏，按竖屏排版铺满横屏窗口，闪 0.x 秒。
+     *  视图还没布局（宽 0）时才退回显示器尺寸 / 配置。 */
     private fun isLandscapeNow(): Boolean {
-        realDisplaySize()?.let { return it.first > it.second }
+        val display = realDisplaySize()
+        val viewWidth = keyboardView?.width ?: 0
+        if (viewWidth > 0 && display != null) {
+            return viewWidth * 100 > minOf(display.first, display.second) * 105
+        }
+        display?.let { return it.first > it.second }
         return resources.configuration.orientation ==
             android.content.res.Configuration.ORIENTATION_LANDSCAPE
     }
