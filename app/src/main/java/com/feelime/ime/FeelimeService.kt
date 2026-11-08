@@ -1167,7 +1167,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         // 无键的空面板、过 0.x 秒才出键——Chromium 在窗口重新可见后还没出帧。
         // 观察窗口从 300ms 提前成 40/120/300ms 三档：脱节就立刻补 VISIBLE，
         // 首帧不再等满 300ms。（条件不满足时什么都不做，正常弹出零开销。）
-        for (val delayMs in longArrayOf(40L, 120L, 300L)) {
+        for (delayMs in longArrayOf(40L, 120L, 300L)) {
             main.postDelayed({
                 val cur = keyboardView
                 if (cur !== expected || gen != showGeneration) return@postDelayed
