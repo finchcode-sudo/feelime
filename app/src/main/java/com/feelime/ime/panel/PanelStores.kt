@@ -485,6 +485,6 @@ class FavoritesStore(context: Context) {
         const val KEY = "items"
         const val TEXT_BUDGET_BYTES = 56 * 1024
         const val MAX_ITEMS = 200
-        const val MAX_TEXT_CHARS = 200
+        const val MAX_TEXT_CHARS = 1000
     }
 }

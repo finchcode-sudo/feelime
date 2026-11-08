@@ -50,6 +50,7 @@
         "重输": "Restart",
         "该键盘还在准备中": "That keyboard is still preparing",
         "已截断至 200 字": "Truncated to 200 characters",
+        "内容过长，最多收藏 1000 字": "Too long to save (1000 characters max)",
         "通配符只能用一个": "Only one wildcard at a time",
         "日本語 Romaji": "Japanese",
         "常用": "Common",
@@ -11134,6 +11135,11 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             };
             build(t("编辑"), () => this.openClipEditor(item));
             build(t("收藏"), () => {
+                // 超长文本原生侧会拒绝：先在这里拦住并如实提示，别弹「已收藏」。
+                if (String(item.text).trim().length > 1000) {
+                    this.showToast(t("内容过长，最多收藏 1000 字"));
+                    return;
+                }
                 // 输入码留空 = 自动（引擎侧取前 3 字/拼音首字母），候选位 1。
                 this.call(() => Native.favoritesAdd(item.text, '', 1, this.token));
                 this.showToast(t("已收藏到常用语"));
