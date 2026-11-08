@@ -1031,6 +1031,20 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
     }
 
     override fun onCreateInputView(): View {
+        // 闪屏根治（2026-11-08 日志定罪）：转屏 / 侧边栏小窗拉起会让系统重建输入窗口，
+        // IMS 随即再调一次 onCreateInputView——以前每次都 new 一个 WebView 重新加载页面，
+        // 页面加载期间（约 150~300ms）键盘区是一块空面板，横竖屏都会闪。
+        // 页面与 service 同生命周期，修订号没变就把原 WebView 摘下来复用，不重载。
+        val cachedHost = inputViewHost
+        if (cachedHost != null && keyboardView != null &&
+            servedRevision == KeyboardUpdateCenter.activeKeyboard(this).revision
+        ) {
+            (cachedHost.parent as? ViewGroup)?.removeView(cachedHost)
+            Diagnostics.log("bridge", "reuseInputView view=${System.identityHashCode(keyboardView)} pageReady=$pageReady")
+            keyboardHeightOverride = storedKeyboardHeight()
+            main.post { pushBridgeHello() }
+            return cachedHost
+        }
         pageToken = newToken()
         pageReady = false
         val active = KeyboardUpdateCenter.activeKeyboard(this)
