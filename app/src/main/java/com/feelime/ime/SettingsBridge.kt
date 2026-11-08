@@ -517,6 +517,7 @@ const val KEY_SOUND_STYLE_CUSTOM = "custom"
 private const val KEY_SOUND_MAX_BYTES = 2 * 1024 * 1024
 /** 复制诊断时保留的最近事件行数（更早的折叠成一行计数）。 */
 private const val CLIP_DIAG_MAX_EVENT_LINES = 150
+private const val CLIP_DIAG_MAX_LIFECYCLE_LINES = 100
 
 fun keySoundStyle(context: Context): String {
     val prefs = context.getSharedPreferences(KEYBOARD_PREFS_FILE, Context.MODE_PRIVATE)
@@ -2370,7 +2371,17 @@ class SettingsBridge(
         val noiseMarks = listOf(" js touchTrace ", " touchN ", " js+ ",
             " engine stateApplied", " engine pushState", " engine replayQueue")
         val signal = events.filterNot { line -> noiseMarks.any { line.contains(it) } }
-        val shown = signal.takeLast(CLIP_DIAG_MAX_EVENT_LINES)
+        // 窗口/方向/悬浮这类生命周期事件单独保底（最近 100 行），其余事件取最近
+        // 50 行，两类按原顺序合并：复现闪屏的那一刻不会被后来的杂项事件挤掉。
+        val lifecycleMarks = listOf(" float ", " js jsFloat ", " ui windowShown", " ui windowHidden",
+            " ui inputViewShown", " ui inputViewHidden", " ui configChange", " ui orient",
+            " bridge helloPushed", " route ")
+        val keep = HashSet<Int>()
+        signal.indices.filter { i -> lifecycleMarks.any { signal[i].contains(it) } }
+            .takeLast(CLIP_DIAG_MAX_LIFECYCLE_LINES).forEach { keep.add(it) }
+        signal.indices.filter { it !in keep }
+            .takeLast(CLIP_DIAG_MAX_EVENT_LINES - 100).forEach { keep.add(it) }
+        val shown = signal.filterIndexed { i, _ -> i in keep }
         val header = listOf(
             "Feelime 诊断导出 ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
                 .format(java.util.Date())}",
