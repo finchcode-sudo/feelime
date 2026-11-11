@@ -10116,11 +10116,30 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             this.wildcardInFlight = false;
             document.body.classList.toggle('composing', this.composing);
             const preedit = document.getElementById('preeditLine');
-            preedit.textContent = this.composing
+            const preeditText = this.composing
                 ? (this.mode === 't9'
                     ? (this.t9Reading() || this.t9PreeditLabel(this.lastRawInput))
                     : this.lastRawInput)
                 : '';
+            // 九宫格：左列依次点选的音节（t9ConfirmedLen 个字母）在拼音行里
+            // 逐个变色，一眼看出已选到哪、还剩哪几段。
+            const doneLetters = (this.composing && this.mode === 't9') ? (this.t9ConfirmedLen || 0) : 0;
+            if (doneLetters > 0 && preeditText) {
+                let split = 0;
+                let seen = 0;
+                while (split < preeditText.length && seen < doneLetters) {
+                    if (/[a-z2-9]/.test(preeditText.charAt(split))) seen++;
+                    split++;
+                }
+                const done = document.createElement('span');
+                done.className = 'pe-done';
+                done.textContent = preeditText.slice(0, split);
+                const rest = document.createElement('span');
+                rest.textContent = preeditText.slice(split);
+                preedit.replaceChildren(done, rest);
+            } else {
+                preedit.textContent = preeditText;
+            }
             if (!this.composing) {
                 this.t9ConfirmedLen = 0;
                 this._t9ConfirmedText = '';

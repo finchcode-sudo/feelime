@@ -299,6 +299,8 @@ body.landscape #symCatBar { margin-top: 3px; gap: 4px; }
     z-index: 5;
 }
 body.composing #preeditLine { display: flex; }
+/* 九宫格已选音节（左列点选）变色 */
+#preeditLine .pe-done { color: var(--accent-text); }
 
 /* ===== 单手模式（issue #15）=====
  * body[data-one-hand="left"|"right"] 时 #softKeyboard 用同侧 padding 让位
