@@ -25,7 +25,8 @@ Twitch Bilibili Weibo Taobao Alibaba Tencent Baidu ByteDance Douyin Xiaohongshu 
 eBay Walmart Costco IKEA Starbucks McDonald KFC Nike Adidas Disney HBO Wikipedia StackOverflow Quora Medium Substack Patreon
 Dropbox OneDrive Pornhub Oracle IBM Cisco Adobe Salesforce AMD Toyota Honda BMW Mercedes Audi Volkswagen Ford Boeing Airbus
 Visa Mastercard Coinbase Binance Bitcoin Ethereum Dogecoin Huawei Lenovo Dell Asus Acer Logitech Razer Canon Nikon Panasonic
-Samsung Hyundai Pfizer Moderna Meituan Pinduoduo Didi Xiaomi Mihoyo Tencent""".split()
+Samsung Hyundai Pfizer Moderna Meituan Pinduoduo Didi Xiaomi Mihoyo Tencent
+    xHamster XVideos SpankBang Eporner XNXX Jable MissAV""".split()
 
 PLACE = """China Japan Korea India Russia America Britain England France Germany Italy Spain Portugal Canada Australia Brazil Mexico
 Argentina Egypt Turkey Thailand Vietnam Singapore Malaysia Indonesia Philippines Pakistan Ukraine Poland Sweden Norway Finland
