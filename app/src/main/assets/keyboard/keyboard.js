@@ -12094,7 +12094,8 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             // 组合期间联想让位：native 按光标前文本的刷新可能晚于下一轮组合
             // 开始到达，迟到的联想词留在 assocWords 里会在组合取消后冒出来。
             if (this.composing) this.assocWords = [];
-            this.assocKind = payload && payload.kind === 'english' ? 'english' : '';
+            this.assocKind = payload && payload.kind === 'english' ? 'english'
+                : (payload && payload.kind === 'domain' ? 'domain' : '');
             this.assocPrefix = this.assocKind && typeof payload.prefix === 'string'
                 ? payload.prefix : '';
             if (this.variantReplaying) return;
@@ -12148,11 +12149,19 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
         /** 联想词点击：原生写入编辑器并推下一轮联想（连续联想）。 */
         commitAssocWord(word) {
             const english = this.assocKind === 'english';
+            const domain = this.assocKind === 'domain';
             const prefix = this.assocPrefix;
             this.assocWords = [];
             this.assocKind = '';
             this.assocPrefix = '';
             this.renderCandidates(this.lastEngineState || {});
+            // @ 域名：光标前正是 @，直接接上域名，不加空格。
+            if (domain) {
+                if (typeof Native !== 'undefined' && typeof Native.commitText === 'function') {
+                    Native.commitText(word, this.token);
+                }
+                return;
+            }
             // 英文补全：原生把光标前的前缀换成「词 + 空格」并学一次。
             if (english) {
                 if (typeof Native !== 'undefined' && typeof Native.commitEnglishSuggestion === 'function') {

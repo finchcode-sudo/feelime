@@ -2413,11 +2413,12 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
     }
 
     /** 推送/清空联想词（docs/design/association.md §3）。 */
-    private fun pushAssoc(words: List<String>, englishPrefix: String? = null) {
+    private fun pushAssoc(words: List<String>, englishPrefix: String? = null, kind: String? = null) {
         val payload = JSONObject().put("words", JSONArray(words))
         // 英文补全复用同一条候选条通道：kind=english + 当时的单词前缀，点选时
         // 原生按前缀校验、替换。
         if (englishPrefix != null) payload.put("kind", "english").put("prefix", englishPrefix)
+        else if (kind != null) payload.put("kind", kind)
         evaluate("window.Feelime && window.Feelime.onAssoc && window.Feelime.onAssoc($payload)")
     }
 
@@ -2463,9 +2464,11 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
 
     private val associationRefresh = Runnable { refreshAssociationFromEditor() }
 
+    /** 候选条当前是不是 @ 域名候选（用来在 @ 消失后清掉它）。 */
+    private var emailDomainsShown = false
+
     /** 光标/文本变化后合并成一次刷新（光标拖动、连续退格会连发回调）。 */
     private fun scheduleAssociationRefresh() {
-        if (!readAssociation(this)) return
         main.removeCallbacks(associationRefresh)
         main.postDelayed(associationRefresh, ASSOCIATION_REFRESH_DELAY_MS)
     }
@@ -2475,10 +2478,24 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
      *  编辑框内容；选区非空时没有「前文」，直接清。读不到文本（宿主返回
      *  null）时保持现状，不凭空清。 */
     private fun refreshAssociationFromEditor() {
-        if (panelInputActive || !readAssociation(this) || !::coordinator.isInitialized) return
+        if (panelInputActive || !::coordinator.isInitialized) return
         val info = currentInputEditorInfo ?: return
         if (isSensitiveEditor(info) || isTerminalLikeEditor(info)) return
         val connection = currentInputConnection ?: return
+        // 光标前刚打出 @：候选条给常见邮箱域名（点选直接接在 @ 后）。不受联想
+        // 开关控制，任何输入模式都出；@ 一离开光标前就收走。
+        val atBefore = if (hostSelectionStart == hostSelectionEnd)
+            connection.getTextBeforeCursor(1, 0)?.toString() else null
+        if (atBefore == "@") {
+            emailDomainsShown = true
+            pushAssoc(EMAIL_DOMAINS, kind = "domain")
+            return
+        }
+        if (emailDomainsShown) {
+            emailDomainsShown = false
+            clearAssociation()
+        }
+        if (!readAssociation(this)) return
         val typedForward = englishTypedForward
         val skipLearn = englishSkipLearn
         englishTypedForward = false
@@ -4764,6 +4781,15 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         const val LOCAL_HOST = "feelime.local"
         /** 光标变化后重算联想的合并延迟（连续退格/拖光标只算最后一次）。 */
         const val ASSOCIATION_REFRESH_DELAY_MS = 60L
+
+        /** @ 后的常见邮箱域名（国内 + 国际），按常用程度排。 */
+        val EMAIL_DOMAINS = listOf(
+            "gmail.com", "qq.com", "163.com", "126.com", "outlook.com",
+            "hotmail.com", "icloud.com", "foxmail.com", "yahoo.com", "sina.com",
+            "sohu.com", "139.com", "yeah.net", "aliyun.com", "live.com",
+            "msn.com", "proton.me", "protonmail.com", "me.com", "mail.com",
+            "yandex.com", "vip.qq.com", "189.cn", "wo.cn",
+        )
         /** 候选条粘贴芯片：存活时间、可显示的最大字数（同粘贴上限）、粘贴检测延迟。 */
         const val CLIP_CHIP_WINDOW_MS = 60_000L
         const val CLIP_CHIP_MAX_CHARS = 2000
