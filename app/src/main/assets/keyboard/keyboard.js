@@ -1213,14 +1213,6 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             ],
         },
         {
-            id: 'pinyin', label: '拼音',
-            rows: [
-                ['ā', 'á', 'ǎ', 'à', 'ō', 'ó', 'ǒ', 'ò', 'ē', 'é'],
-                ['ě', 'è', 'ī', 'í', 'ǐ', 'ì', 'ū', 'ú', 'ǔ', 'ù'],
-                ['ǖ', 'ǘ', 'ǚ', 'ǜ', 'ü', 'ê', 'Ā', 'Á', 'Ǎ'],
-            ],
-        },
-        {
             id: 'hira', label: '平假名',
             rows: [
                 ['あ', 'い', 'う', 'え', 'お', 'か', 'き', 'く', 'け', 'こ'],
@@ -1245,6 +1237,13 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             ],
         },
     ];
+
+    // 26 键长按弹层的拼音声调（原符号面板「拼音」分类已删）：a 出四声、
+    // v 出 ǖǘǚǜ。只追加小写声调字母，不派生大写，原有角标/大写格不变。
+    const TONE_POPUP = {
+        a: ['ā', 'á', 'ǎ', 'à'],
+        v: ['ǖ', 'ǘ', 'ǚ', 'ǜ'],
+    };
 
     // Chinese-mode alts carry their FINAL glyphs - mostly
     // full-width -/：；（）～“”、？！… but the ones the user pinned stay
@@ -5234,12 +5233,15 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             const upper = key.toUpperCase();
             // letter alternates must offer their uppercase forms too
             // (e.g. Russian ё → Ё), not just the base key.
+            const layoutId = (MODES[this.mode] || MODES.direct).layout;
+            const tones = layoutId === 'qwerty' ? (TONE_POPUP[key] || []) : [];
             const chars = [
                 ...this.altCandidates(key).flatMap(char =>
                     /^\p{L}$/u.test(char) && char === char.toLowerCase()
                         ? [char, char.toUpperCase()] : [char]),
                 upper,
                 key,
+                ...tones,
             ].filter((v, i, all) => all.indexOf(v) === i);
             const popup = document.getElementById('keyPopup');
             const inner = document.getElementById('keyPopupInner');
