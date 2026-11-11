@@ -389,6 +389,7 @@ speller:
   alphabet: abcdefghijklmnopqrstuvwxyz23456789
   delimiter: " '"
   algebra:
+  - "derive/^me$/mo/"
   - "abbrev/^([a-z]).+$/$1/"
   - "abbrev/^([zcs]h).+$/$1/"
   - "derive/^(.*)a(.*)$/$1A$2/"

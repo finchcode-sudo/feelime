@@ -229,12 +229,12 @@
       "sha256": "ba0481452c3f255fae476f7f993259114a6b1965da26ed7cbb0660c809142052"
     },
     "rime/luna_pinyin_t9.prism.bin": {
-      "bytes": 164016,
-      "sha256": "d217d61711be8a52ec61b1cedf0872e0735482402671934ec257f3934feec826"
+      "bytes": 164080,
+      "sha256": "be86d80e0909670d045013f41c3947681e7c1748f638959e19865b282b74db8c"
     },
     "rime/luna_pinyin_t9.schema.yaml": {
-      "bytes": 45663,
-      "sha256": "73d3784b70f81689cfb71589301b3b31a7d7ed02b72fdcc54eb53217c70c665b"
+      "bytes": 45685,
+      "sha256": "d08ee4618b27026c5e40a8d1ae5d30a0ed8175cb47bf1763533739932fb28de4"
     },
     "rime/opencc/TSCharacters.txt": {
       "bytes": 104512,
