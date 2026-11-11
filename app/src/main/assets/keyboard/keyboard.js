@@ -2469,6 +2469,10 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
          *  （无组合）时，退格等效 × ——清联想恢复工具栏、不动编辑框；
          *  其余情况照旧走原生删除（回执透传给 #34 回滑恢复）。 */
         backspaceAction() {
+            if (this.mode === 't9' && this.composing && !this.variantReplaying &&
+                this.t9UndoLastPick()) {
+                return true;
+            }
             // 英文补全候选不拦退格：它跟着光标前的字走，退格要照常删字。
             if (this.backspaceAssocOn && this.assocWords.length && !this.composing &&
                 this.assocKind !== 'english') {
@@ -3773,9 +3777,32 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             // 键盘侧确认边界 = 已确认前缀 + 本段选中音节（引擎回显的段
             // 空格只是切分猜测，不能当确认边界用）。文本锚定给退格失效
             // 判定用。
+            // 点选栈：退格在「音节全部选定」时先撤销最后一次点选（见 t9UndoLastPick）。
+            const prevText = this._t9ConfirmedText || '';
+            let stack = this._t9PickStack || (this._t9PickStack = []);
+            if (stack.length && stack[stack.length - 1].after !== prevText) {
+                stack = this._t9PickStack = [];
+            }
             this._t9ConfirmedText = head + syllable;
             this.t9ConfirmedLen = this._t9ConfirmedText.length;
+            stack.push({ before: raw, beforeText: prevText, after: this._t9ConfirmedText });
             this.switchToVariant(this._t9ConfirmedText + seg.slice(syllable.length));
+        }
+
+        /** 退格：九宫格音节已全部点选完（没有未选尾段）时，先撤销最后一次点选
+         *  （yao 变回未选、拼音行变回黑色），而不是直接删掉末尾字母 o。
+         *  还有未选尾段时照常删尾段字母。成功接管返回 true。 */
+        t9UndoLastPick() {
+            const stack = this._t9PickStack;
+            if (!stack || !stack.length || !this._t9ConfirmedText) return false;
+            const top = stack[stack.length - 1];
+            const raw = (this.lastRawInput || '').replace(/ /g, '');
+            if (raw !== this._t9ConfirmedText || raw !== top.after) return false;
+            stack.pop();
+            this._t9ConfirmedText = top.beforeText;
+            this.t9ConfirmedLen = top.beforeText.length;
+            this.switchToVariant(top.before);
+            return true;
         }
 
         /** preedit 观感：字母段与数字段之间插窄空格（64426 → ni·426 观感），
@@ -10143,6 +10170,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             if (!this.composing) {
                 this.t9ConfirmedLen = 0;
                 this._t9ConfirmedText = '';
+                this._t9PickStack = [];
             } else if (this.mode === 't9' && this.t9ConfirmedLen) {
                 // 边界失效只看确认前缀本身有没有被动过：未确认尾段里退格
                 // （ni 426 → ni 42）边界保留；删进已确认段（前缀对不上）
@@ -10152,6 +10180,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 if (!raw.startsWith(this._t9ConfirmedText || '')) {
                     this.t9ConfirmedLen = 0;
                     this._t9ConfirmedText = '';
+                    this._t9PickStack = [];
                 }
             }
             const recording = this.voiceState !== 'idle';
