@@ -1242,7 +1242,11 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
     // v 出 ǖǘǚǜ。只追加小写声调字母，不派生大写，原有角标/大写格不变。
     const TONE_POPUP = {
         a: ['ā', 'á', 'ǎ', 'à'],
-        v: ['ǖ', 'ǘ', 'ǚ', 'ǜ'],
+        o: ['ō', 'ó', 'ǒ', 'ò'],
+        e: ['ē', 'é', 'ě', 'è', 'ê'],
+        i: ['ī', 'í', 'ǐ', 'ì'],
+        u: ['ū', 'ú', 'ǔ', 'ù'],
+        v: ['ǖ', 'ǘ', 'ǚ', 'ǜ', 'ü'],
     };
 
     // Chinese-mode alts carry their FINAL glyphs - mostly
