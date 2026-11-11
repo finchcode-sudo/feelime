@@ -3830,7 +3830,11 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             stack.pop();
             this._t9ConfirmedText = top.beforeText;
             this.t9ConfirmedLen = top.beforeText.length;
-            this.switchToVariant(top.before);
+            // 只还原到「当前已输入的长度」：点选当时 before 里带着之后才打的
+            // 尾巴（yang），照搬会把已经退格删掉的字母又变回来。一个字母
+            // 对应一次按键，所以截到当前 raw 的长度即可。
+            const beforeLen = raw.length;
+            this.switchToVariant(top.before.slice(0, beforeLen));
             return true;
         }
 
@@ -10195,7 +10199,13 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 done.className = 'pe-done';
                 done.textContent = preeditText.slice(0, split);
                 const rest = document.createElement('span');
-                rest.textContent = preeditText.slice(split);
+                // 已选段与未选段之间补一个空格（zen mo na yang），不连在一起。
+                const restText = preeditText.slice(split);
+                if (restText && !/^\s/.test(restText) && !/\s$/.test(done.textContent)) {
+                    rest.textContent = ' ' + restText;
+                } else {
+                    rest.textContent = restText;
+                }
                 preedit.replaceChildren(done, rest);
             } else {
                 preedit.textContent = preeditText;
