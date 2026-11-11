@@ -1243,10 +1243,10 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
     const TONE_POPUP = {
         a: ['ā', 'á', 'ǎ', 'à'],
         o: ['ō', 'ó', 'ǒ', 'ò'],
-        e: ['ē', 'é', 'ě', 'è'],
+        e: ['ē', 'é', 'ě', 'è', 'ê'],
         i: ['ī', 'í', 'ǐ', 'ì'],
         u: ['ū', 'ú', 'ǔ', 'ù'],
-        v: ['ǖ', 'ǘ', 'ǚ', 'ǜ'],
+        v: ['ǖ', 'ǘ', 'ǚ', 'ǜ', 'ü'],
     };
 
     // Chinese-mode alts carry their FINAL glyphs - mostly
@@ -5243,10 +5243,11 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             // (e.g. Russian ё → Ё), not just the base key.
             const layoutId = (MODES[this.mode] || MODES.direct).layout;
             const tones = layoutId === 'qwerty' ? (TONE_POPUP[key] || []) : [];
-            // 十字弹层：中间 = 原来的角标字符，北/东/南/西 = 一/二/三/四声。
-            // 最多 5 格，不再带大小写 a/A。
+            // 声调弹层（两行三列）：上行 = 一二三声，下行 = 四声 · 原角标 ·
+            // 额外字母（ê / ü）。不带大小写 a/A，声调一个不漏。
             const center = this.altCandidates(key)[0];
-            const crossChars = tones.length === 4 && center ? [...tones, center] : null;
+            const crossChars = tones.length >= 4 && center
+                ? [tones[0], tones[1], tones[2], tones[3], center, ...tones.slice(4)] : null;
             const chars = crossChars || [
                 ...this.altCandidates(key).flatMap(char =>
                     /^\p{L}$/u.test(char) && char === char.toLowerCase()
@@ -5255,7 +5256,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 key,
                 ...tones,
             ].filter((v, i, all) => all.indexOf(v) === i);
-            const crossDirs = ['n', 'e', 's', 'w', 'c'];
+            const crossDirs = ['t1', 't2', 't3', 'b1', 'bc', 'b3'];
             const popup = document.getElementById('keyPopup');
             const inner = document.getElementById('keyPopupInner');
             inner.replaceChildren();

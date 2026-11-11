@@ -3247,17 +3247,18 @@ body.landscape #phraseCard .pc-input { grid-column: 1 / 3; }
 #phraseCard.pc-clip-mode .pc-code-label,
 #phraseCard.pc-clip-mode .pc-code-row { display: none; }
 
-/* 拼音声调十字弹层：中间原角标，北东南西 = 一二三四声。 */
+/* 拼音声调弹层：两行三列，上行一二三声，下行四声 · 原角标 · ê/ü。 */
 #keyPopupInner.kp-cross {
     display: grid;
     grid-template-columns: repeat(3, 47px);
-    grid-template-rows: repeat(3, 45px);
+    grid-template-rows: repeat(2, 45px);
     gap: 4px;
     max-width: none;
     flex-wrap: nowrap;
 }
-#keyPopupInner.kp-cross .kp-n { grid-area: 1 / 2; }
-#keyPopupInner.kp-cross .kp-w { grid-area: 2 / 1; }
-#keyPopupInner.kp-cross .kp-c { grid-area: 2 / 2; }
-#keyPopupInner.kp-cross .kp-e { grid-area: 2 / 3; }
-#keyPopupInner.kp-cross .kp-s { grid-area: 3 / 2; }
+#keyPopupInner.kp-cross .kp-t1 { grid-area: 1 / 1; }
+#keyPopupInner.kp-cross .kp-t2 { grid-area: 1 / 2; }
+#keyPopupInner.kp-cross .kp-t3 { grid-area: 1 / 3; }
+#keyPopupInner.kp-cross .kp-b1 { grid-area: 2 / 1; }
+#keyPopupInner.kp-cross .kp-bc { grid-area: 2 / 2; }
+#keyPopupInner.kp-cross .kp-b3 { grid-area: 2 / 3; }
