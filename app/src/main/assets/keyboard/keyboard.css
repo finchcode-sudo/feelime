@@ -3246,3 +3246,18 @@ body.landscape #phraseCard .pc-input { grid-column: 1 / 3; }
 /* 编辑剪贴板条目：只改文字，不显示输入码/位次 */
 #phraseCard.pc-clip-mode .pc-code-label,
 #phraseCard.pc-clip-mode .pc-code-row { display: none; }
+
+/* 拼音声调十字弹层：中间原角标，北东南西 = 一二三四声。 */
+#keyPopupInner.kp-cross {
+    display: grid;
+    grid-template-columns: repeat(3, 47px);
+    grid-template-rows: repeat(3, 45px);
+    gap: 4px;
+    max-width: none;
+    flex-wrap: nowrap;
+}
+#keyPopupInner.kp-cross .kp-n { grid-area: 1 / 2; }
+#keyPopupInner.kp-cross .kp-w { grid-area: 2 / 1; }
+#keyPopupInner.kp-cross .kp-c { grid-area: 2 / 2; }
+#keyPopupInner.kp-cross .kp-e { grid-area: 2 / 3; }
+#keyPopupInner.kp-cross .kp-s { grid-area: 3 / 2; }

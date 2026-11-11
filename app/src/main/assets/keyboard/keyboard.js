@@ -1243,10 +1243,10 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
     const TONE_POPUP = {
         a: ['ā', 'á', 'ǎ', 'à'],
         o: ['ō', 'ó', 'ǒ', 'ò'],
-        e: ['ē', 'é', 'ě', 'è', 'ê'],
+        e: ['ē', 'é', 'ě', 'è'],
         i: ['ī', 'í', 'ǐ', 'ì'],
         u: ['ū', 'ú', 'ǔ', 'ù'],
-        v: ['ǖ', 'ǘ', 'ǚ', 'ǜ', 'ü'],
+        v: ['ǖ', 'ǘ', 'ǚ', 'ǜ'],
     };
 
     // Chinese-mode alts carry their FINAL glyphs - mostly
@@ -5243,7 +5243,11 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             // (e.g. Russian ё → Ё), not just the base key.
             const layoutId = (MODES[this.mode] || MODES.direct).layout;
             const tones = layoutId === 'qwerty' ? (TONE_POPUP[key] || []) : [];
-            const chars = [
+            // 十字弹层：中间 = 原来的角标字符，北/东/南/西 = 一/二/三/四声。
+            // 最多 5 格，不再带大小写 a/A。
+            const center = this.altCandidates(key)[0];
+            const crossChars = tones.length === 4 && center ? [...tones, center] : null;
+            const chars = crossChars || [
                 ...this.altCandidates(key).flatMap(char =>
                     /^\p{L}$/u.test(char) && char === char.toLowerCase()
                         ? [char, char.toUpperCase()] : [char]),
@@ -5251,12 +5255,14 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 key,
                 ...tones,
             ].filter((v, i, all) => all.indexOf(v) === i);
+            const crossDirs = ['n', 'e', 's', 'w', 'c'];
             const popup = document.getElementById('keyPopup');
             const inner = document.getElementById('keyPopupInner');
             inner.replaceChildren();
-            const cells = chars.map(char => {
+            inner.classList.toggle('kp-cross', !!crossChars);
+            const cells = chars.map((char, index) => {
                 const item = document.createElement('div');
-                item.className = 'kp-item';
+                item.className = 'kp-item' + (crossChars ? ' kp-' + crossDirs[index] : '');
                 // Chinese mode prints full-width glyphs for the punct-slot
                 // cells; the commit value stays ASCII and closePopup routes
                 // it through the engine so the printed glyph is what lands.
@@ -5277,7 +5283,8 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 cell.cx = r.left + r.width / 2;
                 cell.cy = r.top + r.height / 2;
             });
-            const selected = cells.find(cell => cell.char === upper) || cells[0];
+            const selected = crossChars ? cells[4]
+                : (cells.find(cell => cell.char === upper) || cells[0]);
             selected.item.classList.add('sel');
             this.popup = { key, cells, selected, cancelled: false,
                 openedAt: Date.now() }; // 长按浮层取证：见另一赋值点注释
@@ -5419,7 +5426,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             inner.style.transform = '';
             inner.style.opacity = '';
             inner.style.maxHeight = '';
-            inner.classList.remove('t9-row', 't9-grid3', 'kp-grid', 'kp-drawer');
+            inner.classList.remove('t9-row', 't9-grid3', 'kp-grid', 'kp-drawer', 'kp-cross');
             const popupEl = document.getElementById('keyPopup');
             popupEl.classList.remove('open', 'kp-drawer');
             // 抽出条按键宽展开，别把宽度带给下一颗长按弹层。
