@@ -109,9 +109,52 @@ object EnglishSuggestStore {
         val snapshot = synchronized(lock) {
             ensureLoaded(context).map { (key, entry) -> Triple(key, entry.count, entry.form) }
         }
-        val builtin = CustomPhraseStore.DEFAULT_ENGLISH_WORDS +
-            CustomPhraseStore.frequencyEnglishWords(context)
-        return rank(prefix, snapshot, builtin)
+        return rank(prefix, snapshot, builtinWords(context))
+    }
+
+    /** 内置补全词序：技术词 → 高频词 → 专有名词（english-proper-nouns.txt）。
+     *  专有名词里标「!」的（品牌/公司/地名）覆盖前两张表里同 key 的小写词面
+     *  （china → China）；人名类不覆盖——Mark/White/King 本身是常用词。结果
+     *  缓存，补全每个按键都会调。 */
+    @Volatile private var builtinCache: List<Pair<String, String>>? = null
+
+    internal fun mergeBuiltin(
+        defaults: List<Pair<String, String>>,
+        frequency: List<Pair<String, String>>,
+        proper: List<Pair<String, Boolean>>,
+    ): List<Pair<String, String>> {
+        val overrideForm = HashMap<String, String>()
+        proper.forEach { (form, override) -> if (override) overrideForm[form.lowercase()] = form }
+        fun adjust(form: String, key: String): Pair<String, String> =
+            (if (form == form.lowercase()) overrideForm[key] ?: form else form) to key
+        val merged = ArrayList<Pair<String, String>>()
+        val taken = HashSet<String>()
+        (defaults + frequency).forEach { (form, key) ->
+            merged.add(adjust(form, key))
+            taken.add(key)
+        }
+        proper.forEach { (form, _) ->
+            val key = form.lowercase()
+            if (taken.add(key)) merged.add(form to key)
+        }
+        return merged
+    }
+
+    private fun builtinWords(context: Context): List<Pair<String, String>> {
+        builtinCache?.let { return it }
+        val proper = runCatching {
+            context.assets.open("english-proper-nouns.txt").bufferedReader().readLines()
+                .mapNotNull { line ->
+                    val parts = line.split('\t')
+                    val form = parts[0].trim()
+                    if (form.length < MIN_WORD) null else form to (parts.getOrNull(1) == "!")
+                }
+        }.getOrDefault(emptyList())
+        return mergeBuiltin(
+            CustomPhraseStore.DEFAULT_ENGLISH_WORDS,
+            CustomPhraseStore.frequencyEnglishWords(context),
+            proper,
+        ).also { builtinCache = it }
     }
 
     /** 学一次这个词。词形：带内部大写（iPhone/GitHub）或短全大写（APK）

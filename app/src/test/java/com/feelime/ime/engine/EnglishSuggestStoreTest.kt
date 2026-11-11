@@ -72,4 +72,23 @@ class EnglishSuggestStoreTest {
     fun completeWordsAreNotSuggestedBackToTheUser() {
         assertEquals(emptyList<String>(), EnglishSuggestStore.rank("pornhub", learned, builtin))
     }
+
+    @Test
+    fun properNounsOverrideLowercaseOnlyWhenMarked() {
+        val merged = EnglishSuggestStore.mergeBuiltin(
+            defaults = listOf("google" to "google", "GitHub" to "github"),
+            frequency = listOf("china" to "china", "mark" to "mark", "make" to "make"),
+            proper = listOf(
+                "Google" to true, "China" to true, "Mark" to false,
+                "OnePlus" to true, "Michael" to false,
+            ),
+        )
+        // 品牌/地名覆盖小写词面；人名不覆盖已有的常用词。
+        assertEquals(
+            listOf("Google", "GitHub", "China", "mark", "make", "OnePlus", "Michael"),
+            merged.map { it.first },
+        )
+        assertEquals(listOf("OnePlus"), EnglishSuggestStore.rank("onep", emptyList(), merged))
+        assertEquals(listOf("China"), EnglishSuggestStore.rank("chin", emptyList(), merged))
+    }
 }
