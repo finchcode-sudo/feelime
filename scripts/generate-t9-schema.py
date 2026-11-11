@@ -108,6 +108,14 @@ def coverage_patches(syllables: list, rules: list) -> list:
     return lines
 
 
+# 口语读法别名：「么」词典读 me，但人人按 mo 打（zenmo / shenmo / zenmonayang）。
+# derive 追加一条 mo 拼写、仍指向原音节 me，所以连续输入时整句切分、排序都走
+# 引擎本身的词频（怎么 + 那样），不必给每个含「么」的短语单独加词。必须放在
+# 简拼与保护级联之前，级联/xlit 才会把 mo 形态一并派生成数字码（66 → me）。
+ALIAS_RULES = [
+    "derive/^me$/mo/",
+]
+
 # 声母简拼（对齐上游 luna_pinyin 的 abbrev 规则）：每个音节除全拼外还多一种
 # 「只写声母」的拼写（ke→k，zhong→zh/z）。放在保护级联之前，级联与 xlit
 # 会把它们一并派生成数字码——数字 5 因而匹配所有 j/k/l 声母的音节，连按
@@ -127,7 +135,7 @@ def hybrid_speller(patches: list) -> str:
         "  delimiter: \" '\"\n"
         "  algebra:\n"
     )
-    abbrev_lines = "".join(f'  - "{rule}"\n' for rule in ABBREV_RULES)
+    abbrev_lines = "".join(f'  - "{rule}"\n' for rule in ALIAS_RULES + ABBREV_RULES)
     rule_lines = "".join(f'  - "derive/{p}/{r}/"\n' for p, r in protect_rules())
     patch_lines = "".join(f'  - "{p}"\n' for p in patches)
     return (head + abbrev_lines + rule_lines + patch_lines
