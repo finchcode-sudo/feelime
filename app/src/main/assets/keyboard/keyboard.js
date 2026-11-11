@@ -2399,6 +2399,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                     this.expandTab = button.dataset.expandTab;
                     document.querySelectorAll('[data-expand-tab]').forEach(el => (
                         el.classList.toggle('active', el === button)));
+                    if (this.expandTab === 'single') this.t9PickFirstSyllableForSingle();
                     this.renderExpanded();
                 });
             });
@@ -3756,6 +3757,31 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             // 前缀格传 no-op——避免默认上屏把拼音组合打断。
             cell.addEventListener('click', action || (() => this.sendSymbol(label)));
             return cell;
+        }
+
+        /** 切到「单字」页：拼音行显示的第一个未选音节（xia'na'ge 的 xia）就是
+         *  用户期望的首字读法，但引擎候选池里 xian（先现线…）的字更多、排在
+         *  xia（下夏吓…）前面。这里等价于替用户点了左列的第一个音节，单字页
+         *  于是只从该音节的字开始；退格可撤销（t9UndoLastPick）。 */
+        t9PickFirstSyllableForSingle() {
+            if (this.mode !== 't9' || !this.composing || this.variantReplaying) return;
+            const seg = this.t9PendingSegment();
+            if (!seg) return;
+            const reading = this.t9Reading();
+            if (!reading) return;
+            let skip = this.t9ConfirmedLen || 0;
+            let i = 0;
+            while (i < reading.length && skip > 0) {
+                if (/[a-z2-9]/.test(reading.charAt(i))) skip--;
+                i++;
+            }
+            while (i < reading.length && !/[a-z2-9]/.test(reading.charAt(i))) i++;
+            let end = i;
+            while (end < reading.length && /[a-z]/.test(reading.charAt(end))) end++;
+            const first = reading.slice(i, end);
+            const full = (T9_SYLLABLE_INDEX.w || {})[first] !== undefined;
+            if (!first || !full || first.length >= seg.length) return;
+            this.t9PickSyllable(first, seg);
         }
 
         /** 点选音节：把未完成段重写为「选中音节 + 段内剩余」。混合串由
