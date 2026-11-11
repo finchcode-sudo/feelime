@@ -8341,7 +8341,7 @@ test('t9 syllable strip: length-then-alphabet order, confirmed boundary, reading
     assert(labels.includes('mi') && labels.includes('o'), 'other readings of 6/64 follow');
     assert(!labels.includes('hao') && !labels.includes('gan'),
         'second-char readings banned before the first char is confirmed');
-    equal(world.$('preeditLine').textContent, "ni'hao",
+    equal(world.$('preeditLine').textContent, "ni hao",
         'preedit shows the top reading of each segment, not digits');
     // 点 ni → 未确认段重写为 ni426（原子 setComposition）；确认边界=首段。
     world.tap([...world.document.querySelectorAll('#t9Strip .t9-side-cell')]
@@ -8386,7 +8386,7 @@ test('t9 syllable strip: length-then-alphabet order, confirmed boundary, reading
     // 无段空格的单段读音也要贪婪覆盖整段（P2-1）：64426 → ni'hao。
     world2.engineState({ phase: 'READY', mode: 't9', revision: 2, composing: '64426',
         rawInput: '64426', candidates: [], hasNextPage: false });
-    equal(world2.$('preeditLine').textContent, "ni'hao",
+    equal(world2.$('preeditLine').textContent, "ni hao",
         'single-segment reading greedily covers the whole input');
     // 纯数字段行为不变：94664 仍列 zhong/xiong。
     world2.engineState({ phase: 'READY', mode: 't9', revision: 3, composing: '94664',

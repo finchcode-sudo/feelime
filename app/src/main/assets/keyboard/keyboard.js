@@ -10169,9 +10169,10 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             this.wildcardInFlight = false;
             document.body.classList.toggle('composing', this.composing);
             const preedit = document.getElementById('preeditLine');
+            // 九宫格拼音行音节之间用空格分隔（wang zhe rong yao），不用撇号。
             const preeditText = this.composing
                 ? (this.mode === 't9'
-                    ? (this.t9Reading() || this.t9PreeditLabel(this.lastRawInput))
+                    ? (this.t9Reading() || this.t9PreeditLabel(this.lastRawInput)).replace(/'/g, ' ')
                     : this.lastRawInput)
                 : '';
             // 九宫格：左列依次点选的音节（t9ConfirmedLen 个字母）在拼音行里

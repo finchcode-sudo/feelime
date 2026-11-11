@@ -299,8 +299,12 @@ body.landscape #symCatBar { margin-top: 3px; gap: 4px; }
     z-index: 5;
 }
 body.composing #preeditLine { display: flex; }
-/* 九宫格已选音节（左列点选）变色 */
-#preeditLine .pe-done { color: var(--accent-text); }
+/* 九宫格已选音节（左列点选）：底色高亮块，文字颜色不变；退格逐个撤销。 */
+#preeditLine .pe-done {
+    background: color-mix(in srgb, var(--accent) 38%, transparent);
+    border-radius: 3px;
+    padding: 0 1px;
+}
 
 /* ===== 单手模式（issue #15）=====
  * body[data-one-hand="left"|"right"] 时 #softKeyboard 用同侧 padding 让位
