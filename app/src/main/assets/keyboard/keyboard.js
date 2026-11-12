@@ -9708,6 +9708,25 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
 
         renderExpanded() {
             const strip = document.getElementById('expandGrid');
+            if (!this.composing && this.assocExpandShown && (this.assocWords || []).length) {
+                document.getElementById('expandPreedit').textContent = '';
+                strip.replaceChildren();
+                this.expandRendered = 0;
+                const variants = document.getElementById('expandVariants');
+                if (variants) variants.replaceChildren();
+                this.assocWords.forEach(word => {
+                    const button = document.createElement('button');
+                    button.className = 'expand-candidate';
+                    button.textContent = word;
+                    button.addEventListener('click', () => {
+                        this.setExpanded(false);
+                        this.commitAssocWord(word);
+                    });
+                    button.addEventListener('mousedown', event => event.preventDefault());
+                    strip.append(button);
+                });
+                return;
+            }
             document.getElementById('expandPreedit').textContent =
                 this.mode === 't9'
                     ? (this.t9Reading() || this.t9PreeditLabel(this.lastRawInput))
@@ -10081,6 +10100,24 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             if (!state.composing && this.voiceState === 'idle') {
                 this.setToolbarYield(this.barWordsActive());
             }
+            // 候选条里正摆着联想词 / @ 域名：右边的 ⌄ 是「展开全部候选」，
+            // 不是收键盘（收键盘键与它长得一样，点了键盘就没了）。
+            if (!state.composing && this.voiceState === 'idle') {
+                const assocShow = (this.assocWords || []).length > 0 &&
+                    !(this.expandCandidates || []).length;
+                const expandBtn = document.getElementById('composeExpand');
+                const hideBtn = document.getElementById('hide');
+                if (assocShow) {
+                    this.assocExpandShown = true;
+                    if (expandBtn) expandBtn.hidden = false;
+                    if (hideBtn) hideBtn.hidden = true;
+                } else if (this.assocExpandShown) {
+                    this.assocExpandShown = false;
+                    if (expandBtn) expandBtn.hidden = true;
+                    if (hideBtn) hideBtn.hidden = (this.mode === 'handwriting' && !!this.inkBarActive);
+                    if (this.expanded) this.setExpanded(false);
+                }
+            }
             const bar = document.getElementById('candidates');
             // Full repaints would clamp scrollLeft back to 0 mid-drag - the
             // exact bar-side version of the grid bug appendExpandedCandidates
@@ -10288,7 +10325,8 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 this.setToolbarYield(true);
             }
             document.getElementById('composeExpand').hidden = !this.composing || voiceBusy;
-            if (!this.composing && this.expanded && !this.variantReplaying) this.setExpanded(false);
+            if (!this.composing && this.expanded && !this.variantReplaying &&
+                !this.assocExpandShown) this.setExpanded(false);
             const mic = document.getElementById('mic');
             // 同 auditToolbarTools：不再耦合长按空格动作（用户反馈
             // 1.3.8 丢图标的另一半触发点——本行在候选渲染高频路径上）。
