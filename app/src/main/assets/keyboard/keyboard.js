@@ -3826,7 +3826,14 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             if (!stack || !stack.length || !this._t9ConfirmedText) return false;
             const top = stack[stack.length - 1];
             const raw = (this.lastRawInput || '').replace(/ /g, '');
-            if (raw !== this._t9ConfirmedText || raw !== top.after) return false;
+            // 两种情况撤销点选：① 音节已全部点选（没有未选尾段）；② 点完这个
+            // 音节后一个键都没按、也没删过（长度没变、已选前缀还在）——比如
+            // 想点 zen 却点成了 wen，立刻退格就应该回到点选前，而不是把
+            // 末尾的 g 删掉。
+            const untouchedSincePick = raw.length === top.before.length &&
+                raw.startsWith(top.after) && this._t9ConfirmedText === top.after;
+            const allConfirmed = raw === this._t9ConfirmedText && raw === top.after;
+            if (!allConfirmed && !untouchedSincePick) return false;
             stack.pop();
             this._t9ConfirmedText = top.beforeText;
             this.t9ConfirmedLen = top.beforeText.length;
