@@ -5263,7 +5263,9 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 key,
                 ...tones,
             ].filter((v, i, all) => all.indexOf(v) === i);
-            const crossDirs = ['t1', 't2', 't3', 'b1', 'bc', 'b3'];
+            // a 单独排：ā á ǎ / - à（原角标 - 在下行左、à 在它右边）；其余键不变。
+            const crossDirs = key === 'a' ? ['t1', 't2', 't3', 'bc', 'b1']
+                : ['t1', 't2', 't3', 'b1', 'bc', 'b3'];
             const popup = document.getElementById('keyPopup');
             const inner = document.getElementById('keyPopupInner');
             inner.replaceChildren();
