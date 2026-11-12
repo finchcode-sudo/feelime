@@ -10132,6 +10132,15 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             // exact bar-side version of the grid bug appendExpandedCandidates
             // exists for. Hold and restore across the rebuild.
             const held = bar.scrollLeft || 0;
+            // 联想/英文补全词和上次画的一模一样就不重建候选条：每个键都会
+            // 触发一次（引擎回声 + 原生联想推送），重复重建就是肉眼可见的闪。
+            const assocSig = (!state.composing && !(this.expandCandidates || []).length &&
+                (this.assocWords || []).length)
+                ? [this.assocKind, this.assocPrefix, ...this.assocWords].join('\u0001') : '';
+            if (assocSig && bar.dataset.assocSig === assocSig &&
+                bar.children.length === this.assocWords.length &&
+                bar.firstElementChild.classList.contains('assoc')) return;
+            delete bar.dataset.assocSig;
             bar.replaceChildren();
             // 中文联想（docs/design/association.md）：组合为空且无引擎候选时，
             // 候选条展示上屏词的后继联想；组合开始即让位（assocWords 已清）。
@@ -10145,6 +10154,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                     button.addEventListener('mousedown', event => event.preventDefault());
                     bar.append(button);
                 });
+                bar.dataset.assocSig = assocSig;
                 bar.scrollLeft = held;
                 return;
             }

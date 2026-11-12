@@ -4780,7 +4780,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
     private companion object {
         const val LOCAL_HOST = "feelime.local"
         /** 光标变化后重算联想的合并延迟（连续退格/拖光标只算最后一次）。 */
-        const val ASSOCIATION_REFRESH_DELAY_MS = 60L
+        const val ASSOCIATION_REFRESH_DELAY_MS = 25L
 
         /** @ 后的常见邮箱域名（国内 + 国际），按常用程度排。 */
         val EMAIL_DOMAINS = listOf(
