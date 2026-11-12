@@ -3847,7 +3847,21 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             // 退格改写尾段又会让 librime 撤销已选汉字并留下残余数字
             // （2026-11-04 实机：an'p'qi'j'a）。两条路都破坏已选内容，
             // 所以已选汉字后音节条不改写——候选字词里照常选。
-            if (/[^a-z2-9]/i.test(head.replace(/'/g, ''))) return;
+            const headText = head.replace(/'/g, '');
+            if (/[^a-z2-9]/i.test(headText)) {
+                // 纯汉字前缀：先把已选汉字上屏，再用「音节+剩余」重新组合，
+                // 不再重放汉字（选了「操你」后点 ma 得到 操你+ma 的候选）。
+                if (!/^[^\x00-\x7f]+$/.test(headText)) return;
+                this.call(() => Native.clearComposing(this.token));
+                this.call(() => Native.commitText(headText, this.token));
+                this._t9ConfirmedText = '';
+                this.t9ConfirmedLen = 0;
+                this._t9PickStack = [];
+                this._t9ConfirmedText = syllable;
+                this.t9ConfirmedLen = syllable.length;
+                this.switchToVariant(syllable + seg.slice(syllable.length));
+                return;
+            }
             // 键盘侧确认边界 = 已确认前缀 + 本段选中音节（引擎回显的段
             // 空格只是切分猜测，不能当确认边界用）。文本锚定给退格失效
             // 判定用。
