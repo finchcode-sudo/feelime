@@ -389,6 +389,51 @@
     };
     const dynamicWeekNames = ['日', '一', '二', '三', '四', '五', '六'];
 
+    // ---- 候选条里的表情匹配（中文拼音/双拼/九宫格）----
+    // 引擎前几位候选的字正好是常用词（哈哈、哭、谢谢…）时，在首选后面插
+    // 1~2 个对应表情，点选直接上屏。来源：① 手写的常用词表 ② EMOJI_NAMES
+    // 的官方中文名整词相等。只做整词精确匹配，不做模糊，避免乱出表情。
+    const EMOJI_ALIASES = {
+        '哈哈': ['😄', '😂'], '呵呵': ['🙂'], '嘿嘿': ['😀', '😏'], '嘻嘻': ['😁'],
+        '笑': ['😄', '😂'], '笑哭': ['😂'], '偷笑': ['🤭'], '开心': ['😊', '😄'],
+        '高兴': ['😊', '😄'], '快乐': ['😊', '😄'], '喜欢': ['😍', '❤️'],
+        '爱': ['❤️', '😍'], '爱心': ['❤️'], '红心': ['❤️'], '心': ['❤️'],
+        '亲亲': ['😘'], '飞吻': ['😘'], '抱抱': ['🤗'], '哭': ['😭', '😢'],
+        '流泪': ['😭'], '难过': ['😢', '😭'], '伤心': ['😢', '💔'], '心碎': ['💔'],
+        '生气': ['😠', '😡'], '愤怒': ['😡'], '害怕': ['😨'], '惊讶': ['😲'],
+        '震惊': ['😱'], '无语': ['😑'], '尴尬': ['😅'], '汗': ['😓'],
+        '晚安': ['😴', '🌙'], '睡觉': ['😴'], '困': ['😪'], '晕': ['😵'],
+        '谢谢': ['🙏'], '感谢': ['🙏'], '拜托': ['🙏'], '祈祷': ['🙏'],
+        '好': ['👍'], '赞': ['👍'], '点赞': ['👍'], '棒': ['👍'], '好的': ['👌'],
+        '鼓掌': ['👏'], '加油': ['💪'], '拳头': ['✊'], '再见': ['👋'],
+        '拜拜': ['👋'], '你好': ['👋'], '恭喜': ['🎉'], '庆祝': ['🎉'],
+        '生日快乐': ['🎂'], '玫瑰': ['🌹'], '太阳': ['☀️'], '月亮': ['🌙'],
+        '星星': ['⭐'], '火': ['🔥'], '钱': ['💰'], '狗': ['🐶'], '猫': ['🐱'],
+        '猪': ['🐷'], '鬼': ['👻'], '便便': ['💩'], '酷': ['😎'], '思考': ['🤔'],
+        '想': ['🤔'], '感冒': ['😷'], '得意': ['😏'], '色': ['😍'], '可怜': ['🥺'],
+        '微笑': ['🙂', '😊'], '拥抱': ['🤗'], '握手': ['🤝'], '胜利': ['✌️'],
+    };
+    let emojiByWord = null;
+    function emojiCandidatesFor(texts, limit) {
+        if (!emojiByWord) {
+            emojiByWord = new Map(Object.entries(EMOJI_ALIASES));
+            Object.entries(EMOJI_NAMES).forEach(([emoji, name]) => {
+                const list = emojiByWord.get(name) || [];
+                if (!list.includes(emoji)) list.push(emoji);
+                emojiByWord.set(name, list);
+            });
+        }
+        const out = [];
+        texts.forEach(text => {
+            (emojiByWord.get(text) || []).forEach(emoji => {
+                if (out.length < limit && !out.includes(emoji) && !texts.includes(emoji)) {
+                    out.push(emoji);
+                }
+            });
+        });
+        return out;
+    }
+
     function dynamicCandidatesFor(raw, mode) {
         if (mode !== 'pinyin' && mode !== 'double-pinyin') return [];
         let spec = DYNAMIC_INPUT_CODES[raw];
@@ -9560,6 +9605,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             const rawEngine = this.expandCandidates.filter(candidate =>
                 !String(candidate.id).startsWith('fav:') &&
                 !String(candidate.id).startsWith('dyn:') &&
+                !String(candidate.id).startsWith('emoji:') &&
                 !String(candidate.id).startsWith('alt:'));
             // 符号词条重排（issue #17）先于 overlay 组装：custom_phrase 通道
             // 的符号/emoji 词在引擎侧受 initial_quality 的 0/1 悬崖支配（第
@@ -9631,9 +9677,17 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             // head (the behaviour before rank slots), rank N = the Nth visible
             // candidate, ties keep list order side by side, and a rank past
             // the pool end clamps to the tail.
+            // 表情匹配：只在中文拼音类模式、组合中，用前 3 位引擎候选的字去
+            // 找；放在首选之后（空格确认的池头仍是引擎首选）。
+            const emojiHits = (raw && ['pinyin', 'double-pinyin', 't9'].includes(this.mode)
+                && this.emojiCandidateOn !== false)
+                ? emojiCandidatesFor(engine.slice(0, 3).map(candidate => candidate.text), 2)
+                    .map(emoji => ({ id: `emoji:${emoji}`, text: emoji, emoji: true }))
+                : [];
             const pool = [
                 ...dyn.filter(item => item.head),
                 ...engine.slice(0, 1),
+                ...emojiHits,
                 ...variants,
                 ...dyn.filter(item => !item.head),
                 ...prefix,
@@ -9695,7 +9749,8 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 this.call(() => Native.commitText(candidate.text, this.token));
                 return;
             }
-            if (candidate && String(candidate.id).startsWith('fav:')) {
+            if (candidate && (String(candidate.id).startsWith('fav:') ||
+                String(candidate.id).startsWith('emoji:'))) {
                 this.call(() => Native.clearComposing(this.token));
                 this.call(() => Native.commitText(candidate.text, this.token));
                 return;
@@ -11388,7 +11443,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             if (!this.isChineseMode()) return;
             // overlay 条目（fav:/dyn:/alt:）不在引擎词库里——删自造词的
             // seek 拿这些 id 只会假动作（菜单/确认框都误导），不挂长按。
-            if (/^(fav|dyn|alt):/.test(String(candidate.id))) return;
+            if (/^(fav|dyn|alt|emoji):/.test(String(candidate.id))) return;
             this.bindItemLongPress(button, () => {
                 onLongPress();
                 this.openCandidateMenu(candidate, button);
