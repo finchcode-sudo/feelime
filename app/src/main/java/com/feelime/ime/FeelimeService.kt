@@ -1102,7 +1102,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
             // 「更高的键盘」（ace 录屏定罪，frame1-7 比稳态高 ~180px+）。
             // hello 仍按权威值覆盖；query 只救首帧。
             Diagnostics.log("bridge", "pageLoad at=create view=${System.identityHashCode(this)}")
-            loadUrl("$KEYBOARD_URL?band=${floatBandPx()}&sb=${navBottomInset()}")
+            loadUrl("$KEYBOARD_URL?band=${floatBandPx()}&sb=${navBottomInset()}${firstFloatQuery()}")
         }
         keyboardView = view
         // v3 埋点（issue #13）：窗口焦点变化在 DiagWebView.onWindowFocusChanged
@@ -1630,7 +1630,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         pageToken = newToken()
         pageReady = false
         Diagnostics.log("bridge", "pageLoad at=reload view=${System.identityHashCode(keyboardView)}")
-        keyboardView?.loadUrl("$KEYBOARD_URL?band=${floatBandPx()}&sb=${navBottomInset()}")
+        keyboardView?.loadUrl("$KEYBOARD_URL?band=${floatBandPx()}&sb=${navBottomInset()}${firstFloatQuery()}")
     }
 
     private fun startVoice() = onMain {
@@ -4268,6 +4268,14 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
      *  maximumWindowMetrics 全报竖屏），而键盘窗口实为 2378 宽、页面视口
      *  792x328——页面被告知竖屏，按竖屏排版铺满横屏窗口，闪 0.x 秒。
      *  视图还没布局（宽 0）时才退回显示器尺寸 / 配置。 */
+    /** 首帧悬浮：横屏且开了悬浮时把 fl=1 随 URL 带给页面，页面第一帧就按悬浮卡片排版，
+     * 不再等握手（语燕是原生视图，读本地设置同步排版，所以不跳）。 */
+    private fun firstFloatQuery(): String {
+        val on = isLandscapeNow() && getSharedPreferences("feelime_keyboard", MODE_PRIVATE)
+            .getBoolean("landscape_float", true)
+        return if (on) "&fl=1" else ""
+    }
+
     private fun isLandscapeNow(): Boolean {
         val display = realDisplaySize()
         val viewWidth = keyboardView?.width ?: 0

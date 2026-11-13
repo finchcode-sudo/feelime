@@ -12648,6 +12648,14 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
     applyTheme();
 
     const keyboard = new FeelimeKeyboard();
+    // 首帧悬浮（native 经 URL query 带来 fl=1）：不等 hello，第一帧就按横屏悬浮卡片排版。
+    // hello 到达后仍以权威值覆盖（方向/开关不一致会自动纠正）。
+    try {
+        if (new URLSearchParams(location.search).get('fl') === '1') {
+            keyboard.floatLandscape = true;
+            keyboard.applyOrientation(true);
+        }
+    } catch (_) {}
     // Keyboard buttons must never take TAB/arrow focus. A focused
     // key makes the WebView eat host-injected keyevents (adb `input keyevent`)
     // as spatial navigation + clicks - observed as a '.' per clear attempt
