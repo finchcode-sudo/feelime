@@ -10336,12 +10336,13 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 done.textContent = preeditText.slice(0, split);
                 const rest = document.createElement('span');
                 // 已选段与未选段之间补一个空格（zen mo na yang），不连在一起。
-                const restText = preeditText.slice(split);
-                if (restText && !/^\s/.test(restText) && !/\s$/.test(done.textContent)) {
-                    rest.textContent = ' ' + restText;
-                } else {
-                    rest.textContent = restText;
+                // 已选段与未选段之间用撇号隔开并并入高亮（xi'an，xi 高亮）。
+                let restText = preeditText.slice(split);
+                if (restText) {
+                    restText = restText.replace(/^[\s']+/, '');
+                    if (!/['\s]$/.test(done.textContent)) done.textContent += "'";
                 }
+                rest.textContent = restText;
                 preedit.replaceChildren(done, rest);
             } else {
                 preedit.textContent = preeditText;
