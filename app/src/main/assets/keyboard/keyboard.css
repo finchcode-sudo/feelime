@@ -3223,6 +3223,11 @@ button:disabled { cursor: default; }
 /* 转屏瞬间视口方向与页面方向不一致：先藏起键盘，避免整宽闪一下（见 syncRotatePending）。 */
 body.kb-rotating #softKeyboard,
 body.kb-await-hello #softKeyboard { visibility: hidden; }
+/* 页面静态 HTML/CSS 在脚本跑起来之前就会画一帧：横屏整窗的默认主题键盘，
+ * 和用户设置完全不同（新安装后第一次弹出的「跳」）。body 一开始就带 kb-await-hello，
+ * 脚本握手后移除；脚本万一没跑起来，2.5s 后由动画强制显示，不会永远藏着。 */
+body.kb-await-hello #softKeyboard { animation: kbBootReveal 0s linear 2.5s forwards; }
+@keyframes kbBootReveal { to { visibility: visible; } }
 
 body.landscape.kb-float #softKeyboard {
     left: auto;
