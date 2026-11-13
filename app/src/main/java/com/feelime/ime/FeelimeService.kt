@@ -649,9 +649,16 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         requestHideSelf(0)
     }
 
+    /** 悬浮矩形还没到的等待期：横屏 + 开了悬浮 + 窗口刚显示不足 FLOAT_PENDING_MS。
+     *  此期间窗口底色/导航栏色按悬浮态处理（透明），否则卡片出来前底边先露一条主题色带。 */
+    private fun isFloatPending(): Boolean =
+        floatRectPx == null && isLandscapeNow() &&
+            android.os.SystemClock.elapsedRealtime() - floatPendingSince < FLOAT_PENDING_MS &&
+            getSharedPreferences("feelime_keyboard", MODE_PRIVATE).getBoolean("landscape_float", true)
+
     private fun applyChromeColor() {
         getWindow()?.window?.let { w ->
-            if (floatRectPx != null) {
+            if (floatRectPx != null || isFloatPending()) {
                 // 悬浮态：窗口涂层、导航栏色一律透明，底部不留色条（谷歌悬浮键盘同款）。
                 w.navigationBarColor = Color.TRANSPARENT
                 w.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
@@ -1152,7 +1159,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         Diagnostics.log("ui", "windowShown")
         floatPendingSince = android.os.SystemClock.elapsedRealtime()
         // 悬浮等待期结束后强制重算一次 insets，避免页面一直没推矩形时留着空触摸区。
-        keyboardView?.postDelayed({ keyboardView?.requestLayout() }, FLOAT_PENDING_MS + 100)
+        keyboardView?.postDelayed({ applyChromeColor(); keyboardView?.requestLayout() }, FLOAT_PENDING_MS + 100)
         armUiProbes()
         // 闪烁根治（2026-11-08 诊断）：窗口隐藏期间方向变了（横屏游戏里键盘
         // 藏着，页面停在旧的 land=0），弹出时页面先按旧方向排版——竖屏布局
@@ -1550,6 +1557,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         super.onStartInputView(editorInfo, restarting)
         // v3 埋点（issue #13）：「调出键盘」的 UI 侧时刻（engine 侧的
         // editorStart 在 onStartInput，两件事不总同拍）。
+        floatPendingSince = android.os.SystemClock.elapsedRealtime()
         Diagnostics.log("ui", "inputViewShown restarting=$restarting type=${editorInfo?.inputType}")
         // 收起时（onFinishInputView）已清过一次联想；restarting 弹出时若那
         // 次 evaluate 没到达（WebView detach 竞态），这里是可靠兜底——
