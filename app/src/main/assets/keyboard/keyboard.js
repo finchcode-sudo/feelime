@@ -2355,7 +2355,21 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             if (typeof window.addEventListener === 'function') {
                 window.addEventListener('resize', () => this.syncFloatRectSoon());
             if (typeof document.addEventListener === 'function') {
-                document.addEventListener('visibilitychange', () => this.syncFloatRectSoon());
+                document.addEventListener('visibilitychange', () => {
+                    this.syncFloatRectSoon();
+                    // 横屏悬浮键盘弹出：窗口还在系统滑入动画/重新量尺寸时卡片会先落在
+                    // 别处再跳到位。弹出瞬间先藏 140ms，位置稳定后再显示。
+                    if (document.visibilityState === 'visible'
+                        && document.body.classList.contains('kb-float')) {
+                        document.body.classList.add('kb-settle');
+                        clearTimeout(this._settleTimer);
+                        this._settleTimer = setTimeout(() => {
+                            this._settleTimer = 0;
+                            this.syncFloatRect(true);
+                            document.body.classList.remove('kb-settle');
+                        }, 140);
+                    }
+                });
             }
             if (typeof ResizeObserver === 'function') {
                 new ResizeObserver(() => this.syncFloatRectSoon())
