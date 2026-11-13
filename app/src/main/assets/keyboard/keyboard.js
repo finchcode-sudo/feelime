@@ -6065,7 +6065,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
         }
 
         rememberEmoji(emoji) {
-            const values = [emoji, ...this.emojiRecents().filter(item => item !== emoji)].slice(0, 16);
+            const values = [emoji, ...this.emojiRecents().filter(item => item !== emoji)].slice(0, 24);
             localStorage.setItem('feelime_emoji_recent', JSON.stringify(values));
         }
 
