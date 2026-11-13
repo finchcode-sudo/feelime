@@ -1366,7 +1366,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
     // 表情视图临时增高倍数：只在 emoji 子视图显示期间生效，经
     // setTransientKeyboardHeight 走原生内存 override，不写 pref；退出
     // 表情/收起重唤即还原到用户保存的高度。上限由原生钳制。
-    const EMOJI_HEIGHT_BOOST = 1.3;
+    const EMOJI_HEIGHT_BOOST = 1.55;
     // 表情分类条用键盘自己画的线条图标（不是系统彩色表情）；文字仍在
     // aria-label 与小标题里。24×24 网格、描边 1.8、圆角端点，随主题着色。
     const FILL = { fill: 'currentColor', stroke: 'none' };
