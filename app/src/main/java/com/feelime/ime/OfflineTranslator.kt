@@ -86,7 +86,20 @@ object OfflineTranslator {
         } else {
             outputs.joinToString("")
         }
-        return Result.Ok(joined)
+        return Result.Ok(matchTerminalPunctuation(text, joined))
+    }
+
+    /** 原文没有句末标点，译文就不带（引擎总会补一个句号：中文「操你妈」→「Fuck your mother.」）；
+     *  原文有句末标点则原样保留引擎的输出。 */
+    private fun matchTerminalPunctuation(source: String, translated: String): String {
+        val ends = ".。!！?？…"
+        val src = source.trimEnd()
+        if (src.isEmpty() || src.last() in ends) return translated
+        val out = translated.trimEnd()
+        // 只去掉一个句末的 . 或 。（保留 ... / 省略号之类的多字符结尾）
+        return if (out.length >= 1 && (out.last() == '.' || out.last() == '。') &&
+            !out.endsWith("..") && !out.endsWith("。。")
+        ) out.dropLast(1) else translated
     }
 
     /** [fixed] 非空 = 词汇表命中的专有名词（已是目标语言写法），不再翻译。 */
