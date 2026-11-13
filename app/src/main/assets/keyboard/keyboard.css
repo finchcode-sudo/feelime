@@ -3222,7 +3222,6 @@ button:disabled { cursor: default; }
  * 就按它算）。宿主 App 不再被顶缩（原生 onComputeInsets 配合）。 */
 /* 转屏瞬间视口方向与页面方向不一致：先藏起键盘，避免整宽闪一下（见 syncRotatePending）。 */
 body.kb-rotating #softKeyboard,
-body.kb-settle #softKeyboard,
 body.kb-await-hello #softKeyboard { visibility: hidden; }
 
 body.landscape.kb-float #softKeyboard {
