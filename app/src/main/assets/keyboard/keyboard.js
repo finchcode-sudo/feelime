@@ -10321,7 +10321,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             // 九宫格拼音行音节之间用空格分隔（wang zhe rong yao），不用撇号。
             const preeditText = this.composing
                 ? (this.mode === 't9'
-                    ? (this.t9Reading() || this.t9PreeditLabel(this.lastRawInput)).replace(/'/g, ' ').replace(/\u2019/g, "'")
+                    ? (this.t9Reading() || this.t9PreeditLabel(this.lastRawInput)).replace(/\u2019/g, "'")
                     : this.lastRawInput)
                 : '';
             // 九宫格：左列依次点选的音节（t9ConfirmedLen 个字母）在拼音行里
