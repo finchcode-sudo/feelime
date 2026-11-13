@@ -3724,7 +3724,8 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                     if (!/[a-z2-9]/.test(part.charAt(i))) {
                         let j = i + 1;
                         while (j < part.length && !/[a-z2-9]/.test(part.charAt(j))) j++;
-                        const chunk = part.slice(i, j).replace(/'/g, ''); if (chunk) out.push(chunk);
+                        // 用户按分词键打的 ' 保留（记为 ’，显示时还原成 '）；汉字照旧。
+                        const chunk = part.slice(i, j).replace(/'+/g, "\u2019"); if (chunk) out.push(chunk);
                         i = j;
                         continue;
                     }
@@ -3742,7 +3743,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                     i += best.length;
                 }
             });
-            return out.join("'");
+            return out.join("'").replace(/'*\u2019'*/g, "\u2019");
         }
 
         /** 未能切成音节的剩余数字→各键字母组首字母（555 → jjj）；非 2-9 的
@@ -9809,7 +9810,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             }
             document.getElementById('expandPreedit').textContent =
                 this.mode === 't9'
-                    ? (this.t9Reading() || this.t9PreeditLabel(this.lastRawInput))
+                    ? (this.t9Reading() || this.t9PreeditLabel(this.lastRawInput)).replace(/\u2019/g, "'")
                     : (this.lastRawInput || '');
             strip.replaceChildren();
             this.expandRendered = 0;
@@ -10317,7 +10318,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             // 九宫格拼音行音节之间用空格分隔（wang zhe rong yao），不用撇号。
             const preeditText = this.composing
                 ? (this.mode === 't9'
-                    ? (this.t9Reading() || this.t9PreeditLabel(this.lastRawInput)).replace(/'/g, ' ')
+                    ? (this.t9Reading() || this.t9PreeditLabel(this.lastRawInput)).replace(/'/g, ' ').replace(/\u2019/g, "'")
                     : this.lastRawInput)
                 : '';
             // 九宫格：左列依次点选的音节（t9ConfirmedLen 个字母）在拼音行里
