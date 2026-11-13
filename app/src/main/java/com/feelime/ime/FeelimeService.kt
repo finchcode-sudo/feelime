@@ -301,6 +301,9 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
      *  由键盘页经 setFloatRect 推来；非空时 onComputeInsets 不让宿主 App 缩小，
      *  可触摸区只限卡片，卡片以外的点击落回宿主。null = 常规贴底键盘。 */
     @Volatile private var floatRectPx: android.graphics.Rect? = null
+    /** 窗口最近一次显示的时刻；悬浮矩形到达前的等待期（FLOAT_PENDING_MS）内 insets 按悬浮态给。 */
+    @Volatile private var floatPendingSince = 0L
+    private val FLOAT_PENDING_MS = 1500L
     /** 最近一次量出的 IME 视图总高（键区 + 弹层带），悬浮态 insets 用。 */
     @Volatile private var lastWindowTotalHeight = 0
     private var lastFloatSig = ""
@@ -1147,6 +1150,9 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
     override fun onWindowShown() {
         super.onWindowShown()
         Diagnostics.log("ui", "windowShown")
+        floatPendingSince = android.os.SystemClock.elapsedRealtime()
+        // 悬浮等待期结束后强制重算一次 insets，避免页面一直没推矩形时留着空触摸区。
+        keyboardView?.postDelayed({ keyboardView?.requestLayout() }, FLOAT_PENDING_MS + 100)
         armUiProbes()
         // 闪烁根治（2026-11-08 诊断）：窗口隐藏期间方向变了（横屏游戏里键盘
         // 藏着，页面停在旧的 land=0），弹出时页面先按旧方向排版——竖屏布局
@@ -1263,6 +1269,22 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
                 Diagnostics.log("float", "insets region=${region.flattenToString()} total=$total overlay=$overlayOpen " +
                     "screen=${resources.displayMetrics.widthPixels}x${resources.displayMetrics.heightPixels}")
             }
+            return
+        }
+        // 悬浮矩形还没从页面推来（冷启动约 0.9s）：横屏且开了悬浮时先按悬浮态给 insets——
+        // 宿主 App 不被顶起、暂无可触摸区（语燕同样按悬浮设置同步给 insets）。否则这段时间
+        // 走贴底键盘的 insets，宿主窗口被顶起，矩形一到又缩回去，就是「弹出时位置跳动」。
+        if (floatRect == null && isLandscapeNow() &&
+            android.os.SystemClock.elapsedRealtime() - floatPendingSince < FLOAT_PENDING_MS &&
+            getSharedPreferences("feelime_keyboard", MODE_PRIVATE).getBoolean("landscape_float", true)
+        ) {
+            val total = if (lastWindowTotalHeight > 0) lastWindowTotalHeight
+                else resources.displayMetrics.heightPixels
+            outInsets.contentTopInsets = total
+            outInsets.visibleTopInsets = total
+            outInsets.touchableInsets =
+                android.inputmethodservice.InputMethodService.Insets.TOUCHABLE_INSETS_REGION
+            outInsets.touchableRegion.setEmpty()
             return
         }
         val band = floatBandPx()
