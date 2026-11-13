@@ -467,12 +467,12 @@ fun readCandidateFont(context: Context): Int =
             }
         }
 
-/** 中文联想开关（docs/design/association.md）：默认关。 */
+/** 中文联想开关（docs/design/association.md）：默认开；用户显式关过的保持关。 */
 const val PREF_ASSOCIATION = "association_on"
 
 fun readAssociation(context: Context): Boolean =
     context.getSharedPreferences(KEYBOARD_PREFS_FILE, Context.MODE_PRIVATE)
-        .getBoolean(PREF_ASSOCIATION, false)
+        .getBoolean(PREF_ASSOCIATION, true)
 
 /** 联想让位态退格清联想（issue #46）：默认关——退格照旧删字符，
  *  开启后退格在联想让位态等效 ×（清联想恢复工具栏）。 */
