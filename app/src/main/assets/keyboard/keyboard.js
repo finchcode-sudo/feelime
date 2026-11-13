@@ -5309,7 +5309,10 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             // letter alternates must offer their uppercase forms too
             // (e.g. Russian ё → Ё), not just the base key.
             const layoutId = (MODES[this.mode] || MODES.direct).layout;
-            const tones = layoutId === 'qwerty' ? (TONE_POPUP[key] || []) : [];
+            // Shift / 大写锁定时长按出大写声调（Ā Á Ǎ À …），否则小写。
+            const toneUpper = this.shift || this.caps;
+            const tones = (layoutId === 'qwerty' ? (TONE_POPUP[key] || []) : [])
+                .map(char => (toneUpper ? char.toUpperCase() : char));
             // 声调弹层（两行三列）：上行 = 一二三声，下行 = 四声 · 原角标 ·
             // 额外字母（ê / ü）。不带大小写 a/A，声调一个不漏。
             const center = this.altCandidates(key)[0];
