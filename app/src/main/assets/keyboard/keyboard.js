@@ -5998,8 +5998,10 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 const touch = event.touches[0];
                 if (Math.hypot(touch.clientX - tipX, touch.clientY - tipY) > 12) cancelTip();
             }, { passive: true });
-            pages.addEventListener('touchend', cancelTip, { passive: true });
-            pages.addEventListener('touchcancel', cancelTip, { passive: true });
+            // 手一离开立刻收起详情（click 仍由 emojiTipFired 拦住，不会误打出表情）。
+            const releaseTip = () => { cancelTip(); this.hideEmojiTip(); };
+            pages.addEventListener('touchend', releaseTip, { passive: true });
+            pages.addEventListener('touchcancel', releaseTip, { passive: true });
             const strip = document.createElement('div');
             strip.className = 'emoji-cats';
             const tabs = [];
