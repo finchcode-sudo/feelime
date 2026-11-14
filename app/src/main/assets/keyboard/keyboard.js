@@ -12262,6 +12262,16 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 : (payload && payload.kind === 'domain' ? 'domain' : '');
             this.assocPrefix = this.assocKind && typeof payload.prefix === 'string'
                 ? payload.prefix : '';
+            // 英文模式敲 http / https：补全条带出 http:// 与 https://（排在首个补全词后）。
+            if (this.assocKind === 'english') {
+                const lower = this.assocPrefix.toLowerCase();
+                const urls = lower === 'http' ? ['http://', 'https://']
+                    : (lower === 'https' ? ['https://'] : []);
+                if (urls.length) {
+                    const base = this.assocWords.filter(word => !urls.includes(word));
+                    this.assocWords = [...base.slice(0, 1), ...urls, ...base.slice(1)];
+                }
+            }
             if (this.variantReplaying) return;
             this.renderCandidates(this.lastEngineState || {});
         }

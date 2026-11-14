@@ -3946,6 +3946,11 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
                         return@onMain
                     }
                     englishSkipLearn = true
+                    if (word.endsWith("://")) {
+                        // URL 前缀（http:// 等）：后面直接接域名，不补空格也不学词。
+                        coordinator.replaceBeforeCursor(prefix.length, word)
+                        return@onMain
+                    }
                     coordinator.replaceBeforeCursor(prefix.length, "$word ")
                     com.feelime.ime.engine.EnglishSuggestStore.learn(applicationContext, word)
                 }
