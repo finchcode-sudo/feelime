@@ -9663,15 +9663,6 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             const dyn = (raw && this.dynamicDateTimeOn !== false
                 ? dynamicCandidatesFor(raw, this.mode) : [])
                 .filter(item => !engineTexts.has(item.text));
-            // 输入 http / https 时候选带出 http:// 与 https://（非 head：首选仍是引擎词，
-            // 空格确认不会误上屏成 http://）。
-            const urlTexts = raw === 'http' ? ['http://', 'https://']
-                : (raw === 'https' ? ['https://'] : []);
-            urlTexts.forEach((text, index) => {
-                if (!engineTexts.has(text)) {
-                    dyn.push({ id: `dyn:url-${index}`, text, dynamic: true, head: false });
-                }
-            });
             const exact = [];
             const prefix = [];
             if (raw) {
@@ -10126,9 +10117,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             const english = [];
             const rest = [];
             pool.forEach(item => {
-                // dyn:url（http:// 等）跟英文词同组，不被当成中文候选把英文词挤到第 3 位。
-                (isEnglish(item && item.text) || String(item && item.id).startsWith('dyn:url')
-                    ? english : rest).push(item);
+                (isEnglish(item && item.text) ? english : rest).push(item);
             });
             if (!english.length || !rest.length) return pool;
             // 目标位：固定档直接用；auto 到这里 rest 必非空（无中文候选
