@@ -7330,7 +7330,9 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
          * 700ms 兜底，hello 没来也不会一直藏着。 */
         syncRotatePending() {
             const viewportLandscape = (window.innerWidth || 0) > (window.innerHeight || 0);
-            const pending = !!this.floatLandscape && !!this.helloOrientation
+            // 冷启动首次弹出也要藏：首帧 WebView 视口还是旧的竖屏尺寸（360x496），
+            // 卡片会按竖屏宽度画在左边，量好后才跳到右下。所以不再要求已经收到过握手。
+            const pending = !!this.floatLandscape
                 && viewportLandscape !== !!this.landscape;
             document.body.classList.toggle('kb-rotating', pending);
             clearTimeout(this._rotateTimer);
