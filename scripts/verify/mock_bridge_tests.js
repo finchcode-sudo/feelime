@@ -4580,7 +4580,7 @@ test('setup button opens the quick settings panel; full settings entry calls ope
     equal(JSON.stringify(world.tileNames()),
         JSON.stringify(modernTiles ? [
             '色彩模式', '中文联想', '按键声音', '按键振动',
-            '键盘高度', '输入统计', '快捷切换', '长按菜单', '候选字号', '单手模式',
+            '键盘高度', '输入统计', '候选字号', '单手模式',
             '底部留白', '长按时长', '滑动选字',
             '编辑工具栏', '完整设置',
         ] : [
@@ -5860,49 +5860,20 @@ test('quick tiles: re-render keeps the current page (no jump to page 1)', {since
     const world = fresh();
     world.hello();
     world.tap(world.$('setupButton'));
-    // 翻到第二页（真实设备是手指横滑；harness 直接拨 scrollLeft）。
     const strip = world.document.querySelector('.qs-pages');
     strip.scrollLeft = strip.firstElementChild.offsetWidth;
     strip.listeners.filter(l => l.type === 'scroll').forEach(l => l.handler({ target: strip }));
-    assert(world.tileNames().indexOf('长按菜单') >= 0, 'page-2 tiles stay in the DOM');
-    // 点第二页的子页导航 → 返回首页：必须还在第二页。
-    if (verAtLeast(KEYBOARD_VERSION, '3.62.0')) {
-        // 3.62 起三个 route-out tile 锚到各自的设置行（不再只落键盘选择卡）。
-        world.tap(world.tile('长按菜单'));
-        equal(world.native.of('openSetupPage').slice(-1)[0].args[0], 'menuModesRow',
-            'menu tile anchors the menu-modes setting row');
-        assert(!world.$('settingsPanel').classList.contains('open'), 'panel closes on route-out');
-    } else if (verAtLeast(KEYBOARD_VERSION, '3.60.0')) {
-        // 3.60 起长按菜单 tile 直达设置页「键盘选择」卡（不再开内嵌子页）。
-        world.tap(world.tile('长按菜单'));
-        equal(world.native.of('openSetupPage').slice(-1)[0].args[0], 'secKeyboards',
-            'menu tile routes to the settings keyboards card');
-        assert(!world.$('settingsPanel').classList.contains('open'), 'panel closes on route-out');
-    } else {
-        world.tap(world.tile('长按菜单'));
-        assert(world.document.body.classList.contains('settings-page'), 'sub-page opened');
-        world.tap(world.$('settingsPageBar').children[0]); // back
-        const strip2 = world.document.querySelector('.qs-pages');
-        equal(strip2.scrollLeft, strip2.firstElementChild.offsetWidth,
-            'home re-render restores page 2');
-    }
+    assert(world.tileNames().indexOf('候选字号') >= 0, 'page-2 tiles stay in the DOM');
     const dots = [...world.document.querySelectorAll('.qs-dots span')];
     assert(dots[1] && dots[1].classList.contains('cur'), 'second dot active');
 });
 
-test('quick tiles: the three route-out tiles anchor their own setting row', {since: '3.62.0'}, () => {
+test('quick tiles: 快捷切换 and 长按菜单 tiles are removed from the quick panel', {since: '3.62.0'}, () => {
     const world = fresh();
     world.hello();
     world.tap(world.$('setupButton'));
-    // 验收 2026-09-24 二改：三个 tile 各自锚到完整设置的对应设置行，
-    // 由设置页 focusSetting 翻页+呼吸；键盘侧只负责带锚跳转。
-    world.tap(world.tile('快捷切换'));
-    equal(world.native.of('openSetupPage').slice(-1)[0].args[0], 'quickPairA',
-        'pair tile anchors the quick-pair row');
-    world.tap(world.tile('长按菜单'));
-    equal(world.native.of('openSetupPage').slice(-1)[0].args[0], 'menuModesRow',
-        'menu tile anchors the menu-modes row');
-    assert(!world.$('settingsPanel').classList.contains('open'), 'panel closes on route-out');
+    assert(!world.tileNames().includes('快捷切换'), 'quick-pair tile removed');
+    assert(!world.tileNames().includes('长按菜单'), 'menu tile removed');
 });
 
 test('quick tiles grid is strictly 2x4 (no third row, ever)', {since: '3.44.0'}, () => {
@@ -7583,10 +7554,10 @@ test('English UI preserves Chinese composition and switches back', {since: '3.22
     assert(world.$('candidates').textContent.includes('你好'), 'candidate text unchanged');
     equal(world.native.of('clearComposing').length, 0, 'no composition reset');
     world.tap(world.$('setupButton'));
-    assert(world.tileNames().includes('Quick switch'), 'dynamic UI translated');
+    assert(world.tileNames().includes('Typing stats'), 'dynamic UI translated');
     world.hello({mode: 'pinyin', uiLocale: 'zh'});
     equal(world.$('heightCardSave').textContent, '保存', 'switch back');
-    assert(world.tileNames().includes('快捷切换'), 'open subview stays translated');
+    assert(world.tileNames().includes('输入统计'), 'open subview stays translated');
 });
 
 test('panel composition replaces spans and saves only after native flush', {since: '3.22.0'}, () => {

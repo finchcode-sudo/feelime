@@ -9258,20 +9258,6 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                         tap: () => { this.toggleStatsPanel(); rehome(); },
                     },
                     {
-                        icon: ICONS.swap, label: t("快捷切换"),
-                        state: () => this.quickPair.map(m => modeLabel(m)).join(' · '),
-                        // 验收 2026-09-24 二改：tile 直达完整设置的「对应设置
-                        // 行」（quickPairA=快捷切换对），不再只落卡级；锚定
-                        // 与呼吸灯由设置页 focusSetting 统一处理。
-                        tap: () => { this.closeSettingsPanel(); this.call(() => Native.openSetupPage('quickPairA', this.token)); },
-                    },
-                    {
-                        icon: ICONS.menu, label: t("长按菜单"),
-                        state: () => t("{0} 个键盘", this.menuModes().length),
-                        // menuModesRow=「长按菜单里列出哪些键盘」设置行。
-                        tap: () => { this.closeSettingsPanel(); this.call(() => Native.openSetupPage('menuModesRow', this.token)); },
-                    },
-                    {
                         icon: ICONS.font, label: t("候选字号"), hold: 'candidateFont',
                         state: () => `${this.qRead('candidateFont', this.candidateFont)}%`,
                         tap: () => {
