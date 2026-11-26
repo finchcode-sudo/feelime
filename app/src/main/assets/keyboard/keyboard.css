@@ -391,9 +391,9 @@ body.toolbar-edit #numPadLayer { display: none; }
     min-height: 0;
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 30px 22px;
     align-content: flex-start;
-    padding: 8px;
+    padding: 8px 8px 24px;
     border-radius: 10px;
     /* 固定半透明白：不能用 --pill（浅色 #fff/深色 #3d3d3d），否则容器
      * 和圆钮同色，按钮融进背景只剩 + 角标（preview 实测）。 */
@@ -416,6 +416,23 @@ body.toolbar-edit #numPadLayer { display: none; }
     justify-content: center;
     /* 容器底色与圆钮在两个主题下都可能接近，靠阴影给轮廓。 */
     box-shadow: 0 1px 4px #0003;
+}
+#toolbarEditorGrid .tool { position: relative; overflow: visible; }
+#toolbarEditorGrid .tool::before {
+    content: attr(aria-label);
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: 64px;
+    font-size: 10px;
+    line-height: 1.2;
+    font-weight: 500;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
 }
 #toolbarEditorGrid .tool.editor-pool { position: relative; }
 #toolbarEditorGrid .tool.editor-pool::after {
