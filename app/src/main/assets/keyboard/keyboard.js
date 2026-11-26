@@ -3234,13 +3234,13 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 item.item.classList.toggle('sel', item === this.popup.selected));
         }
 
-        /** 手写模式的高度预算（竖屏）：面板宽高比钉在 1.6:1（wetype
+        /** 手写模式的高度预算（竖屏）：面板宽高比钉在 1.15:1（2026-11-27 用户要求书写区更大，原 1.6:1）（wetype
          * 实测 984×590 口径），键盘总高 = 顶部 chrome + 控制行 + 面板。
          * 横屏不改总高（native 钳半屏，预算本就见底，面板改左右布局
          * 竖向铺满——见 .ink-layout 的横屏分支）。 */
         inkPanelTarget() {
             const width = Math.max(0, (window.innerWidth || 0) - 8);
-            return Math.round(width / 1.6);
+            return Math.round(width / 1.15);
         }
 
         /** 手写键面的固定纵向开销：拼音带 + 候选条槽 + 控制行 + 底部
