@@ -2541,7 +2541,8 @@ body.expanded #preeditLine { display: none; }
     display: flex;
     flex-direction: column;
     gap: 6px;
-    padding: 6px 6px 6px 4px;
+    /* 底部让出右下角地球键（输入法切换）的位置，别被它盖住回车。 */
+    padding: 6px 6px 60px 4px;
 }
 #expandRail .kb-key {
     flex: 1;
