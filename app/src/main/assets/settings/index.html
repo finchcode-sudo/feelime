@@ -384,6 +384,18 @@
       </label>
     </section>
 
+    <section class="card" id="sec-email" aria-labelledby="emailTitle">
+      <div class="section-heading"><h2 id="emailTitle" data-i18n="input.email.title">邮箱记忆</h2><span class="eyebrow" data-i18n="input.email.badge">输入</span></div>
+      <label class="row switch-row" for="emailMemoryOn">
+        <span class="row-label"><span data-i18n="input.email.enable">记住我输入过的邮箱</span><small data-i18n="input.email.hint">英文输入时敲出完整邮箱会记在本机，之后打前几个字符就在候选条补全；密码框、禁建议框不记，浏览器无痕模式只补全不记。数据不上传、不进备份。</small></span>
+        <input type="checkbox" id="emailMemoryOn" data-keywords="邮箱 邮件 email 记住 补全 自动填充" class="toggle">
+      </label>
+      <div class="actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="btn ghost-btn" id="btnClearEmailMemory" type="button" data-i18n="input.email.clearBtn">清除已记住的邮箱</button>
+        <span class="save-note" id="emailMemoryNote" role="status" aria-live="polite"></span>
+      </div>
+    </section>
+
     <section class="card" id="sec-datetime" aria-labelledby="datetimeTitle">
       <div class="section-heading"><h2 id="datetimeTitle" data-i18n="input.datetime.title">日期时间候选</h2><span class="eyebrow" data-i18n="input.datetime.badge">输入</span></div>
       <label class="row switch-row no-rule" for="dynamicDateTimeOn">

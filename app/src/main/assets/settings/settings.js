@@ -196,6 +196,13 @@ const I18N = {
         "input.assoc.badge": "输入",
         "input.assoc.enable": "选词后联想下一个词",
         "input.assoc.hint": "上屏后在候选条给出高频接续词，点击可连续联想；只在全拼/双拼生效。",
+        "input.email.title": "邮箱记忆",
+        "input.email.badge": "输入",
+        "input.email.enable": "记住我输入过的邮箱",
+        "input.email.hint": "英文输入时敲出完整邮箱会记在本机，之后打前几个字符就在候选条补全；密码框、禁建议框不记，浏览器无痕模式只补全不记。数据不上传、不进备份。",
+        "input.email.clearBtn": "清除已记住的邮箱",
+        "input.email.confirmClear": "再点一次确认清除",
+        "input.email.cleared": "已清除",
         "input.assoc.backspaceClear": "联想时退格清除联想",
         "input.assoc.backspaceClearHint": "联想候选显示时按退格先清联想、恢复工具栏（不删字）；关闭则退格照旧删字。",
         "input.datetime.title": "日期时间候选",
@@ -964,6 +971,13 @@ const I18N = {
         "input.assoc.badge": "Input",
         "input.assoc.enable": "Suggest the next word after a commit",
         "input.assoc.hint": "Shows frequent followers in the candidates bar after a word commits; tap to keep the chain going. Full/Double Pinyin only.",
+        "input.email.title": "Email memory",
+        "input.email.badge": "Input",
+        "input.email.enable": "Remember emails I type",
+        "input.email.hint": "A full email address typed in English mode is remembered on this device, then suggested in the candidates bar after you type its first characters. Password and no-suggestions fields are skipped, and browser incognito only suggests without learning. Nothing is uploaded or included in backups.",
+        "input.email.clearBtn": "Clear remembered emails",
+        "input.email.confirmClear": "Tap again to confirm",
+        "input.email.cleared": "Cleared",
         "input.assoc.backspaceClear": "Backspace dismisses associations",
         "input.assoc.backspaceClearHint": "When association candidates are showing, backspace clears them and restores the toolbar (nothing deleted); off = backspace deletes as usual.",
         "input.datetime.title": "Date & time candidates",
@@ -2542,6 +2556,9 @@ function renderDoublePinyin(state) {
     if (document.activeElement !== $("associationOn")) {
         $("associationOn").checked = !!state.associationOn;
     }
+    if (document.activeElement !== $("emailMemoryOn")) {
+        $("emailMemoryOn").checked = state.emailMemoryOn !== false;
+    }
     if (document.activeElement !== $("backspaceAssocOn")) {
         $("backspaceAssocOn").checked = !!state.backspaceAssocOn;
     }
@@ -4054,6 +4071,31 @@ $("btnCheckUpdate").addEventListener("click", () => call("checkUpdate", $("updat
 $("autoUpdateCheck").addEventListener("change", event => call("setAutoUpdateCheck", event.target.checked));
 $("associationOn").addEventListener("change", event => call("setAssociation", event.target.checked));
 $("backspaceAssocOn").addEventListener("change", event => call("setBackspaceAssoc", event.target.checked));
+$("emailMemoryOn").addEventListener("change", event => call("setEmailMemory", event.target.checked));
+/** 清除已记住的邮箱：与「清空导入词」同款两击确认（WebView 无原生 confirm）。 */
+let clearEmailArmed = false;
+let clearEmailTimer = null;
+function disarmClearEmail() {
+    clearTimeout(clearEmailTimer);
+    clearEmailTimer = null;
+    clearEmailArmed = false;
+    const btn = $("btnClearEmailMemory");
+    btn.classList.remove("danger");
+    btn.textContent = t("input.email.clearBtn");
+}
+$("btnClearEmailMemory").addEventListener("click", () => {
+    if (clearEmailArmed) {
+        disarmClearEmail();
+        call("clearEmailMemory");
+        setNote("emailMemoryNote", t("input.email.cleared"));
+        return;
+    }
+    const btn = $("btnClearEmailMemory");
+    btn.classList.add("danger");
+    btn.textContent = t("input.email.confirmClear");
+    clearEmailArmed = true;
+    clearEmailTimer = setTimeout(disarmClearEmail, 4000);
+});
 $("wxSlashOn").addEventListener("change", event => call("setWxSlash", event.target.checked));
 $("dynamicDateTimeOn").addEventListener("change", event => call("setDynamicDateTime", event.target.checked));
 $("keySound").addEventListener("change", event => call("setKeySound", event.target.checked));

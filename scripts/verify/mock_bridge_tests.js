@@ -7890,6 +7890,21 @@ test('english suggestions ride the assoc bar: click replaces the prefix via the 
     equal(world.native.of('commitAssoc').length, 1, 'later chinese assoc goes back to commitAssoc');
 });
 
+test('remembered emails ride the english bridge with the email token as the prefix', {since: '3.33.0'}, () => {
+    const world = fresh({ mode: 'direct' });
+    world.engineState({ phase: 'READY', mode: 'direct', revision: 1, composing: '', rawInput: '',
+        candidates: [], hasNextPage: false });
+    world.assoc(['rfg59419@gmail.com'], { kind: 'english', prefix: 'rfg5' });
+    const buttons = () => [...world.$('candidates').children]
+        .filter(b => (b.className || '').split(/\s+/).includes('assoc'));
+    equal(buttons().length, 1, 'the remembered email renders on the assoc bar');
+    buttons()[0].click();
+    const english = world.native.of('commitEnglishSuggestion');
+    equal(english.length, 1, 'email click goes through the english bridge');
+    equal(`${english[0].args[0]}|${english[0].args[1]}`, 'rfg59419@gmail.com|rfg5',
+        'email and the token it was computed for are passed');
+});
+
 test('paste chip: latest copy shows in the idle bar, tap pastes it and the chip retires', {since: '3.33.0'}, () => {
     const world = fresh({ mode: 'pinyin' });
     world.engineState({ phase: 'READY', mode: 'pinyin', revision: 1, composing: '', rawInput: '',

@@ -94,6 +94,8 @@ class MockSettingsNative {
     setInkDelay(...a) { this._rec('setInkDelay', a); }
     setFuzzyPinyinMask(...a) { this._rec('setFuzzyPinyinMask', a); }
     setAssociation(...a) { this._rec('setAssociation', a); }
+    setEmailMemory(...a) { this._rec('setEmailMemory', a); }
+    clearEmailMemory(...a) { this._rec('clearEmailMemory', a); }
     setDynamicDateTime(...a) { this._rec('setDynamicDateTime', a); }
     openBaseDictDocument(...a) { this._rec('openBaseDictDocument', a); }
     clearBaseDict(...a) { this._rec('clearBaseDict', a); }
@@ -1900,6 +1902,28 @@ test('association toggle reflects state and commits with the token', () => {
     change.handler({ target: box });
     equal(world.lastCall('setAssociation').args, [true, world.token],
         'association toggle + token');
+});
+
+test('email memory toggle defaults on, commits with the token, and clear needs a second tap', () => {
+    const world = new SettingsWorld();
+    world.push({ ...BASE_STATE });
+    equal(world.$('emailMemoryOn').checked, true, 'email memory defaults on');
+    world.push({ ...BASE_STATE, emailMemoryOn: false });
+    equal(world.$('emailMemoryOn').checked, false, 'explicit off from state');
+    const box = world.$('emailMemoryOn');
+    const change = box.listeners.find(listener => listener.type === 'change');
+    assert(change, '#emailMemoryOn has a change listener');
+    box.checked = false;
+    change.handler({ target: box });
+    equal(world.lastCall('setEmailMemory').args, [false, world.token],
+        'email memory toggle + token');
+    const clear = world.$('btnClearEmailMemory');
+    const click = clear.listeners.find(listener => listener.type === 'click');
+    assert(click, '#btnClearEmailMemory has a click listener');
+    click.handler({});
+    equal(world.native.of('clearEmailMemory').length, 0, 'first tap only arms the confirmation');
+    click.handler({});
+    equal(world.lastCall('clearEmailMemory').args, [world.token], 'second tap clears with the token');
 });
 
 test('datetime candidates toggle defaults on and commits with the token', () => {

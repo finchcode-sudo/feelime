@@ -1517,6 +1517,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
 
     override fun onFinishInputView(finishingInput: Boolean) {
         Diagnostics.log("ui", "inputViewHidden finishing=$finishingInput")
+        learnEmailFromFieldOnLeave()
         inputConnectionGeneration += 1
         // 键盘已收起：在途手势会话一并作废（延迟删除丢弃）。
         endBackspaceGestureSession(executeQueued = false)
@@ -2524,6 +2525,15 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         if (emailDomainsShown) {
             emailDomainsShown = false
             clearAssociation()
+            // 点了 @ 域名候选：光标前现在正好是个完整邮箱，记一次（只在英文直输）。
+            if (coordinator.currentMode == com.feelime.ime.engine.InputMode.DIRECT &&
+                emailLearnAllowed(info)
+            ) {
+                connection.getTextBeforeCursor(com.feelime.ime.engine.EmailSuggestStore.WINDOW, 0)
+                    ?.toString()
+                    ?.let { com.feelime.ime.engine.EmailSuggestStore.trailingEmail(it) }
+                    ?.let { com.feelime.ime.engine.EmailSuggestStore.learn(applicationContext, it) }
+            }
         }
         if (!readAssociation(this)) return
         val typedForward = englishTypedForward
@@ -2537,7 +2547,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         // 英文 Direct 模式：补全 + 学习；其余模式沿用中文联想。
         if (coordinator.currentMode == com.feelime.ime.engine.InputMode.DIRECT) {
             val text = connection
-                .getTextBeforeCursor(com.feelime.ime.engine.EnglishSuggestStore.WINDOW, 0)
+                .getTextBeforeCursor(com.feelime.ime.engine.EmailSuggestStore.WINDOW, 0)
                 ?.toString() ?: return
             refreshEnglishSuggestions(info, text, typedForward && !skipLearn)
             return
@@ -2548,22 +2558,87 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         pushAssoc(com.feelime.ime.engine.AssociationStore.next(applicationContext, before))
     }
 
-    /** 英文补全候选 + 学习（EnglishSuggestStore）。URL/邮箱/数字输入框和声明
-     *  「不要建议」的输入框既不补全也不学习。 */
+    /** 英文补全候选 + 学习（EnglishSuggestStore），外加已记住的邮箱
+     *  （EmailSuggestStore）。URL/邮箱/数字输入框和声明「不要建议」的输入框
+     *  不出英文词补全也不学词；邮箱记忆另有自己的闸门（见 [emailSuggestAllowed]），
+     *  邮箱类输入框正是它的主场。 */
     private fun refreshEnglishSuggestions(info: EditorInfo, before: String, learn: Boolean) {
-        if (!englishSuggestAllowed(info)) {
+        val wordsOn = englishSuggestAllowed(info)
+        val emailOn = emailSuggestAllowed(info)
+        if (!wordsOn && !emailOn) {
             clearAssociation()
             return
         }
         if (learn) {
-            com.feelime.ime.engine.EnglishSuggestStore.finishedWord(before)?.let {
-                com.feelime.ime.engine.EnglishSuggestStore.learn(applicationContext, it)
+            if (wordsOn) {
+                com.feelime.ime.engine.EnglishSuggestStore.finishedWord(before)?.let {
+                    com.feelime.ime.engine.EnglishSuggestStore.learn(applicationContext, it)
+                }
+            }
+            if (emailLearnAllowed(info)) {
+                com.feelime.ime.engine.EmailSuggestStore.finishedEmail(before)?.let {
+                    com.feelime.ime.engine.EmailSuggestStore.learn(applicationContext, it)
+                }
             }
         }
-        val prefix = com.feelime.ime.engine.EnglishSuggestStore.trailingPrefix(before)
+        val emailToken = if (emailOn) {
+            com.feelime.ime.engine.EmailSuggestStore.completionToken(before)
+        } else null
+        val emails = if (emailToken == null) emptyList()
+        else com.feelime.ime.engine.EmailSuggestStore.suggest(applicationContext, emailToken)
+        val prefix = if (wordsOn) {
+            com.feelime.ime.engine.EnglishSuggestStore.trailingPrefix(before)
+        } else null
         val words = if (prefix == null) emptyList<String>()
         else com.feelime.ime.engine.EnglishSuggestStore.suggest(applicationContext, prefix)
-        if (prefix == null || words.isEmpty()) clearAssociation() else pushAssoc(words, prefix)
+        when {
+            // 邮箱排前面；英文词只在两边前缀一致时并进来（点选按同一个前缀校验），
+            // 例如 john-smi 这种邮箱前缀与英文单词前缀不同的情形只给邮箱。
+            emails.isNotEmpty() && emailToken != null ->
+                pushAssoc(if (prefix == emailToken) (emails + words).distinct() else emails, emailToken)
+            prefix != null && words.isNotEmpty() -> pushAssoc(words, prefix)
+            else -> clearAssociation()
+        }
+    }
+
+    /** 邮箱记忆的闸门：文本输入框、开关开着、没有声明「不要建议」。邮箱/
+     *  网址类输入框也允许——邮箱输入框正是它的主场（密码/终端框已在调用方
+     *  之前挡掉）。 */
+    private fun emailSuggestAllowed(info: EditorInfo): Boolean {
+        val type = info.inputType
+        if (type and InputType.TYPE_MASK_CLASS != InputType.TYPE_CLASS_TEXT) return false
+        if (type and InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS != 0) return false
+        return readEmailMemory(this)
+    }
+
+    /** 学习比补全多一道闸：宿主声明「不要个性化学习」（浏览器无痕模式等）
+     *  时只补全、不记。 */
+    private fun emailLearnAllowed(info: EditorInfo): Boolean =
+        emailSuggestAllowed(info) &&
+            info.imeOptions and android.view.inputmethod.EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING == 0
+
+    /** 离开邮箱类输入框时，整个框的内容恰好是一个完整邮箱就记一次：覆盖
+     *  「点了域名候选/敲完直接点下一步」这种没有收尾字符的路径。只读邮箱类
+     *  输入框；密码、终端、面板输入不读；只在英文直输模式。 */
+    private fun learnEmailFromFieldOnLeave() {
+        if (panelInputActive || !::coordinator.isInitialized) return
+        if (coordinator.currentMode != com.feelime.ime.engine.InputMode.DIRECT) return
+        val info = currentInputEditorInfo ?: return
+        if (isSensitiveEditor(info) || isTerminalLikeEditor(info)) return
+        val variation = info.inputType and InputType.TYPE_MASK_VARIATION
+        if (variation != InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS &&
+            variation != InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS
+        ) {
+            return
+        }
+        if (!emailLearnAllowed(info)) return
+        val connection = currentInputConnection ?: return
+        val before = connection.getTextBeforeCursor(com.feelime.ime.engine.EmailSuggestStore.WINDOW, 0)
+        val after = connection.getTextAfterCursor(com.feelime.ime.engine.EmailSuggestStore.WINDOW, 0)
+        if (before == null || after == null) return
+        com.feelime.ime.engine.EmailSuggestStore.wholeEmail("$before$after")?.let {
+            com.feelime.ime.engine.EmailSuggestStore.learn(applicationContext, it)
+        }
     }
 
     private fun englishSuggestAllowed(info: EditorInfo): Boolean {
@@ -3931,17 +4006,36 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         @JavascriptInterface
         fun commitEnglishSuggestion(word: String, prefix: String, token: String) =
             guarded(token, limited = false) {
-                if (word.isEmpty() || word.length > 32 || prefix.isEmpty() || prefix.length > 32) {
+                if (word.isEmpty() || word.length > 96 || prefix.isEmpty() || prefix.length > 96) {
                     return@guarded
                 }
                 onMain {
                     if (panelInputActive || !readAssociation(applicationContext)) return@onMain
                     val info = currentInputEditorInfo ?: return@onMain
                     if (isSensitiveEditor(info) || isTerminalLikeEditor(info)) return@onMain
-                    if (!englishSuggestAllowed(info)) return@onMain
                     val before = currentInputConnection
-                        ?.getTextBeforeCursor(com.feelime.ime.engine.EnglishSuggestStore.WINDOW, 0)
+                        ?.getTextBeforeCursor(com.feelime.ime.engine.EmailSuggestStore.WINDOW, 0)
                         ?.toString() ?: return@onMain
+                    // 邮箱候选（词里带 @）：按邮箱前缀校验，整串替换；邮箱输入框里
+                    // 不补空格，其余输入框补一个空格，和英文词一致。
+                    if (word.contains('@')) {
+                        if (!emailSuggestAllowed(info)) return@onMain
+                        if (com.feelime.ime.engine.EmailSuggestStore.completionToken(before) != prefix ||
+                            !word.startsWith(prefix, ignoreCase = true)
+                        ) {
+                            return@onMain
+                        }
+                        englishSkipLearn = true
+                        val variation = info.inputType and InputType.TYPE_MASK_VARIATION
+                        val inEmailField = variation == InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS ||
+                            variation == InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS
+                        coordinator.replaceBeforeCursor(prefix.length, if (inEmailField) word else "$word ")
+                        if (emailLearnAllowed(info)) {
+                            com.feelime.ime.engine.EmailSuggestStore.learn(applicationContext, word)
+                        }
+                        return@onMain
+                    }
+                    if (!englishSuggestAllowed(info)) return@onMain
                     if (com.feelime.ime.engine.EnglishSuggestStore.trailingPrefix(before) != prefix) {
                         return@onMain
                     }

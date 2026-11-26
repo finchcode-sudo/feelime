@@ -474,6 +474,14 @@ fun readAssociation(context: Context): Boolean =
     context.getSharedPreferences(KEYBOARD_PREFS_FILE, Context.MODE_PRIVATE)
         .getBoolean(PREF_ASSOCIATION, true)
 
+/** 邮箱记忆开关：默认开；用户显式关过的保持关。只影响英文直输模式下
+ *  邮箱的学习与补全（EmailSuggestStore）。 */
+const val PREF_EMAIL_MEMORY = "email_memory_on"
+
+fun readEmailMemory(context: Context): Boolean =
+    context.getSharedPreferences(KEYBOARD_PREFS_FILE, Context.MODE_PRIVATE)
+        .getBoolean(PREF_EMAIL_MEMORY, true)
+
 /** 联想让位态退格清联想（issue #46）：默认关——退格照旧删字符，
  *  开启后退格在联想让位态等效 ×（清联想恢复工具栏）。 */
 const val PREF_BACKSPACE_ASSOC = "backspace_assoc_on"
@@ -819,6 +827,7 @@ class SettingsBridge(
                 }
             })
             .put("associationOn", readAssociation(context))
+            .put("emailMemoryOn", readEmailMemory(context))
             .put("backspaceAssocOn", readBackspaceAssoc(context))
             .put("wxSlashOn", readWxSlash(context))
             .put("dynamicDateTimeOn", readDynamicDateTime(context))
@@ -1786,6 +1795,23 @@ class SettingsBridge(
             Intent(ACTION_KEYBOARD_PREFS_CHANGED).setPackage(context.packageName),
         )
         pushState()
+    }
+
+    /** 邮箱记忆开关：落盘 + 广播重推 hello。 */
+    @JavascriptInterface
+    fun setEmailMemory(on: Boolean, token: String) = guarded(token) {
+        context.getSharedPreferences(KEYBOARD_PREFS_FILE, Context.MODE_PRIVATE)
+            .edit().putBoolean(PREF_EMAIL_MEMORY, on).commit()
+        context.sendBroadcast(
+            Intent(ACTION_KEYBOARD_PREFS_CHANGED).setPackage(context.packageName),
+        )
+        pushState()
+    }
+
+    /** 清除已记住的全部邮箱（设置页两击确认后调用）。 */
+    @JavascriptInterface
+    fun clearEmailMemory(token: String) = guarded(token) {
+        com.feelime.ime.engine.EmailSuggestStore.clear(context)
     }
 
     /** 联想让位态退格清联想（issue #46）：落盘 + 广播重推 hello。 */
