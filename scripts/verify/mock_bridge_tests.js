@@ -7903,6 +7903,16 @@ test('remembered emails ride the english bridge with the email token as the pref
     equal(english.length, 1, 'email click goes through the english bridge');
     equal(`${english[0].args[0]}|${english[0].args[1]}`, 'rfg59419@gmail.com|rfg5',
         'email and the token it was computed for are passed');
+    // 显示：@ 之前在上、@域名在下（仿 Gboard），按钮文字合起来仍是整条邮箱。
+    world.assoc(['rfg59419@gmail.com', 'rfg@qq.com'], { kind: 'english', prefix: 'rfg' });
+    const email = buttons()[0];
+    assert(email.classList.contains('email') || (email.className || '').split(/\s+/).includes('email'),
+        'email candidate gets the two-line class');
+    const parts = [...email.children].map(node => `${node.className}:${node.textContent}`).join('|');
+    equal(parts, 'email-local:rfg59419|email-domain:@gmail.com', 'prefix on top, @domain below');
+    // 普通英文词仍是单行纯文字。
+    world.assoc(['pork'], { kind: 'english', prefix: 'por' });
+    equal(buttons()[0].children.length, 0, 'plain words stay single-line');
 });
 
 test('paste chip: latest copy shows in the idle bar, tap pastes it and the chip retires', {since: '3.33.0'}, () => {

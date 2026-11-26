@@ -10226,7 +10226,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 this.assocWords.forEach(word => {
                     const button = document.createElement('button');
                     button.className = 'candidate assoc';
-                    button.textContent = word;
+                    this.fillAssocLabel(button, word);
                     button.addEventListener('click', () => this.commitAssocWord(word));
                     button.addEventListener('mousedown', event => event.preventDefault());
                     bar.append(button);
@@ -12307,6 +12307,24 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             if (typeof Native !== 'undefined' && typeof Native.commitClipChip === 'function') {
                 Native.commitClipChip(this.token);
             }
+        }
+
+        /** 联想条按钮的文字。英文补全里已记住的邮箱（含 @）仿 Gboard 两行显示：
+         *  上面 @ 之前的前缀，下面小字 @域名；点选仍提交整条邮箱。 */
+        fillAssocLabel(button, word) {
+            const at = word.indexOf('@');
+            if (this.assocKind !== 'english' || at <= 0) {
+                button.textContent = word;
+                return;
+            }
+            const local = document.createElement('span');
+            local.className = 'email-local';
+            local.textContent = word.slice(0, at);
+            const domain = document.createElement('span');
+            domain.className = 'email-domain';
+            domain.textContent = word.slice(at);
+            button.classList.add('email');
+            button.append(local, domain);
         }
 
         /** 联想词点击：原生写入编辑器并推下一轮联想（连续联想）。 */

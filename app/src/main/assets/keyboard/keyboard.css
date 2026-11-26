@@ -670,6 +670,25 @@ body.settings-page #candidateBar > .tool { display: none; }
  * 用户定稿（2026-09-20）：不做任何「这是联想」的降调标识——不加灰字、
  * 不加圆点/角标，样式全部继承 .candidate。class 名保留供测试定位。 */
 
+/* 已记住的邮箱（association.md §3b）：仿 Gboard 两行——上面 @ 之前的前缀，
+ * 下面小字 @域名。两行总高要塞进 40px 的候选条，字号缩放封顶 1.2 倍。 */
+.candidate.email {
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 0;
+    padding: 0 12px;
+}
+.candidate.email .email-local {
+    font-size: calc(16px * min(var(--cand-font-scale, 1), 1.2));
+    line-height: 1.15;
+}
+.candidate.email .email-domain {
+    font-size: calc(11px * min(var(--cand-font-scale, 1), 1.2));
+    line-height: 1.15;
+    opacity: .68;
+}
+
 /* 候选字号（issue #42）：JS 直写 --cand-font-scale（80-150% 连续），
  * data 属性仅作测试锚点，不再驱动缩放；34px 行高预算不动。 */
 .candidate:active, .candidate.active-touch { background: var(--pressed); }
