@@ -61,6 +61,26 @@ class HandwritingEngine(
     private var inputName: String? = null
     @Volatile private var released = false
 
+    private class LastInk(val payload: String, val texts: List<String>)
+    @Volatile private var lastInk: LastInk? = null
+    @Volatile private var priorMap: Map<String, CharPrior>? = null
+
+    /** 字频/笔画数先验；资源缺失时为空表，重排退化成原样截断。 */
+    private fun priors(): Map<String, CharPrior> = priorMap ?: runCatching {
+        context.assets.open(PRIOR_ASSET).bufferedReader(Charsets.UTF_8).use {
+            HandwritingRerank.parsePriors(it.lineSequence().toList().asSequence())
+        }
+    }.getOrDefault(emptyMap()).also { priorMap = it }
+
+    /** 用户点选了手写候选 [text]：开启样本记录时把最近一次笔迹连同排名存下来。 */
+    fun recordPick(text: String) {
+        val ink = lastInk ?: return
+        val rank = ink.texts.indexOf(text)
+        if (rank < 0) return
+        val line = InkSampleStore.buildLine(ink.payload, text, rank, ink.texts) ?: return
+        InkSampleStore.appendAsync(context, line)
+    }
+
     fun isModelAvailable(): Boolean = modelStore.sourceFor(MODEL_ROLE) != null
 
     fun recognizeInk(reqId: Int, payload: String, pageToken: String) {
@@ -181,7 +201,9 @@ class HandwritingEngine(
                     require(buffer.remaining() == vocabulary.size) { "output length does not match vocabulary" }
                     FloatArray(buffer.remaining()).also { buffer.get(it) }
                 }
-                val candidates = HandwritingInk.rankSoftmax(probs, vocabulary, CANDIDATE_LIMIT)
+                val pool = HandwritingInk.rankSoftmax(probs, vocabulary, HandwritingRerank.POOL)
+                val candidates = HandwritingRerank.rerank(pool, request.strokes.size, priors())
+                lastInk = LastInk(payload, candidates.map { it.text })
                 Diagnostics.logCritical("inkDecode", "e=$engineId req=$reqId n=${candidates.size}")
                 return InkResult(reqId, candidates, null)
             } finally { nativeStep("output-close") { output.close() } }
@@ -280,7 +302,7 @@ class HandwritingEngine(
         const val MELNYK_SIZE = 96
         const val MELNYK_INNER = 88
         const val MELNYK_MARGIN = 4
-        const val CANDIDATE_LIMIT = 8
+        const val PRIOR_ASSET = "engine-data/handwriting/char_prior.tsv"
     }
 }
 

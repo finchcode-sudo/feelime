@@ -396,6 +396,19 @@
       </div>
     </section>
 
+    <section class="card" id="sec-ink" aria-labelledby="inkTitle">
+      <div class="section-heading"><h2 id="inkTitle" data-i18n="input.ink.title">手写样本</h2><span class="eyebrow" data-i18n="input.ink.badge">手写</span></div>
+      <label class="row switch-row" for="inkSamplesOn">
+        <span class="row-label"><span data-i18n="input.ink.enable">记录手写样本（用于调优识别）</span><small data-i18n="input.ink.hint">打开后，每次点选手写候选会把笔迹、你选的字和候选排名存在本机，最多 1000 条。只存本机、不上传、不进备份；可导出后发给开发者评测。默认关闭。</small></span>
+        <input type="checkbox" id="inkSamplesOn" data-keywords="手写 样本 笔迹 识别 评测 ink handwriting" class="toggle">
+      </label>
+      <div class="actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="btn" id="btnExportInkSamples" type="button" data-i18n="input.ink.exportBtn">导出样本</button>
+        <button class="btn ghost-btn" id="btnClearInkSamples" type="button" data-i18n="input.ink.clearBtn">清除样本</button>
+        <span class="save-note" id="inkSamplesNote" role="status" aria-live="polite"></span>
+      </div>
+    </section>
+
     <section class="card" id="sec-datetime" aria-labelledby="datetimeTitle">
       <div class="section-heading"><h2 id="datetimeTitle" data-i18n="input.datetime.title">日期时间候选</h2><span class="eyebrow" data-i18n="input.datetime.badge">输入</span></div>
       <label class="row switch-row no-rule" for="dynamicDateTimeOn">

@@ -482,6 +482,13 @@ fun readEmailMemory(context: Context): Boolean =
     context.getSharedPreferences(KEYBOARD_PREFS_FILE, Context.MODE_PRIVATE)
         .getBoolean(PREF_EMAIL_MEMORY, true)
 
+/** 手写样本记录开关：默认关，用户主动打开才记（InkSampleStore，只存本机）。 */
+const val PREF_INK_SAMPLES = "ink_samples_on"
+
+fun readInkSamples(context: Context): Boolean =
+    context.getSharedPreferences(KEYBOARD_PREFS_FILE, Context.MODE_PRIVATE)
+        .getBoolean(PREF_INK_SAMPLES, false)
+
 /** 联想让位态退格清联想（issue #46）：默认关——退格照旧删字符，
  *  开启后退格在联想让位态等效 ×（清联想恢复工具栏）。 */
 const val PREF_BACKSPACE_ASSOC = "backspace_assoc_on"
@@ -592,6 +599,8 @@ class SettingsBridge(
         fun openFlypyDocument() = Unit
         /** Launch ACTION_CREATE_DOCUMENT for the userdata backup (userdata.md §1). */
         fun createBackupDocument() = Unit
+        /** Launch ACTION_CREATE_DOCUMENT for the handwriting samples export. */
+        fun createInkSamplesDocument() = Unit
         /** Launch ACTION_OPEN_DOCUMENT for a userdata backup file. */
         fun openBackupDocument() = Unit
         fun addImeShortcut() = Unit
@@ -828,6 +837,8 @@ class SettingsBridge(
             })
             .put("associationOn", readAssociation(context))
             .put("emailMemoryOn", readEmailMemory(context))
+            .put("inkSamplesOn", readInkSamples(context))
+            .put("inkSamplesCount", InkSampleStore.count(context))
             .put("backspaceAssocOn", readBackspaceAssoc(context))
             .put("wxSlashOn", readWxSlash(context))
             .put("dynamicDateTimeOn", readDynamicDateTime(context))
@@ -1812,6 +1823,46 @@ class SettingsBridge(
     @JavascriptInterface
     fun clearEmailMemory(token: String) = guarded(token) {
         com.feelime.ime.engine.EmailSuggestStore.clear(context)
+    }
+
+    /** 手写样本记录开关：落盘 + 广播重推 hello。 */
+    @JavascriptInterface
+    fun setInkSamples(on: Boolean, token: String) = guarded(token) {
+        context.getSharedPreferences(KEYBOARD_PREFS_FILE, Context.MODE_PRIVATE)
+            .edit().putBoolean(PREF_INK_SAMPLES, on).commit()
+        context.sendBroadcast(
+            Intent(ACTION_KEYBOARD_PREFS_CHANGED).setPackage(context.packageName),
+        )
+        pushState()
+    }
+
+    /** 清除已记录的手写样本（设置页两击确认后调用）。 */
+    @JavascriptInterface
+    fun clearInkSamples(token: String) = guarded(token) {
+        InkSampleStore.clear(context)
+        pushState()
+    }
+
+    @JavascriptInterface
+    fun exportInkSamples(token: String) = guarded(token) { host.createInkSamplesDocument() }
+
+    /** 设置页的 CreateDocument 回调：把样本写成 JSON 数组到选定位置。 */
+    fun writeInkSamplesToUri(uri: Uri) {
+        if (closed) return
+        runCatching {
+            worker.execute {
+                if (closed) return@execute
+                runCatching {
+                    val n = context.contentResolver.openOutputStream(uri, "wt")?.use { out ->
+                        InkSampleStore.export(context, out)
+                    } ?: throw java.io.IOException("selected document has no writable stream")
+                    pushEvent(JSONObject().put("type", "inkSamplesExport").put("ok", true).put("count", n))
+                }.onFailure { failure ->
+                    Log.w(TAG, "ink samples export failed", failure)
+                    pushEvent(JSONObject().put("type", "inkSamplesExport").put("ok", false))
+                }
+            }
+        }
     }
 
     /** 联想让位态退格清联想（issue #46）：落盘 + 广播重推 hello。 */

@@ -194,6 +194,13 @@ class SetupActivity : AppCompatActivity() {
         if (uri != null) bridge.writeUserdataBackupToUri(uri)
     }
 
+    /** ACTION_CREATE_DOCUMENT for the handwriting samples export. */
+    private val inkSamplesCreateLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri: Uri? ->
+        if (uri != null) bridge.writeInkSamplesToUri(uri)
+    }
+
     /** ACTION_OPEN_DOCUMENT for importing a userdata backup file. */
     private val backupOpenLauncher = registerForActivityResult(
         ActivityResultContracts.OpenDocument(),
@@ -660,6 +667,19 @@ class SetupActivity : AppCompatActivity() {
                         "application/octet-stream",
                     ))
                 }.onFailure { Log.w(TAG, "keyboard package picker launch dropped", it) }
+            }
+        }
+
+        override fun createInkSamplesDocument() {
+            if (!canTouchWebView()) return
+            runOnUiThread {
+                if (!canTouchWebView()) return@runOnUiThread
+                val stamp = java.text.SimpleDateFormat(
+                    "yyyyMMdd-HHmm", java.util.Locale.US,
+                ).format(java.util.Date())
+                runCatching {
+                    inkSamplesCreateLauncher.launch("feelime-ink-samples-$stamp.json")
+                }.onFailure { Log.w(TAG, "ink samples picker launch dropped", it) }
             }
         }
 

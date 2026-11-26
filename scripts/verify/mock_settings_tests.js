@@ -96,6 +96,9 @@ class MockSettingsNative {
     setAssociation(...a) { this._rec('setAssociation', a); }
     setEmailMemory(...a) { this._rec('setEmailMemory', a); }
     clearEmailMemory(...a) { this._rec('clearEmailMemory', a); }
+    setInkSamples(...a) { this._rec('setInkSamples', a); }
+    clearInkSamples(...a) { this._rec('clearInkSamples', a); }
+    exportInkSamples(...a) { this._rec('exportInkSamples', a); }
     setDynamicDateTime(...a) { this._rec('setDynamicDateTime', a); }
     openBaseDictDocument(...a) { this._rec('openBaseDictDocument', a); }
     clearBaseDict(...a) { this._rec('clearBaseDict', a); }
@@ -1924,6 +1927,29 @@ test('email memory toggle defaults on, commits with the token, and clear needs a
     equal(world.native.of('clearEmailMemory').length, 0, 'first tap only arms the confirmation');
     click.handler({});
     equal(world.lastCall('clearEmailMemory').args, [world.token], 'second tap clears with the token');
+});
+
+test('ink samples toggle defaults off, shows the count, exports, and clear needs a second tap', () => {
+    const world = new SettingsWorld();
+    world.push({ ...BASE_STATE });
+    equal(world.$('inkSamplesOn').checked, false, 'ink samples default off');
+    world.push({ ...BASE_STATE, inkSamplesOn: true, inkSamplesCount: 7 });
+    equal(world.$('inkSamplesOn').checked, true, 'explicit on from state');
+    assert(world.$('inkSamplesNote').textContent.includes('7'), 'count shown');
+    const box = world.$('inkSamplesOn');
+    const change = box.listeners.find(listener => listener.type === 'change');
+    assert(change, '#inkSamplesOn has a change listener');
+    box.checked = false;
+    change.handler({ target: box });
+    equal(world.lastCall('setInkSamples').args, [false, world.token], 'ink samples toggle + token');
+    const exportClick = world.$('btnExportInkSamples').listeners.find(l => l.type === 'click');
+    exportClick.handler({});
+    equal(world.lastCall('exportInkSamples').args, [world.token], 'export with token');
+    const click = world.$('btnClearInkSamples').listeners.find(l => l.type === 'click');
+    click.handler({});
+    equal(world.native.of('clearInkSamples').length, 0, 'first tap only arms the confirmation');
+    click.handler({});
+    equal(world.lastCall('clearInkSamples').args, [world.token], 'second tap clears with the token');
 });
 
 test('datetime candidates toggle defaults on and commits with the token', () => {

@@ -3983,6 +3983,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
             if (text.isEmpty() || text.length > 32) return@guarded
             onMain {
                 if (panelInputActive) return@onMain
+                if (readInkSamples(applicationContext)) handwritingEngine?.recordPick(text)
                 coordinator.pasteExternal(text)
                 if (readAssociation(applicationContext)) {
                     // 表在 commit 路径已预热，这里是暖读

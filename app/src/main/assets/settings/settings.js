@@ -203,6 +203,17 @@ const I18N = {
         "input.email.clearBtn": "清除已记住的邮箱",
         "input.email.confirmClear": "再点一次确认清除",
         "input.email.cleared": "已清除",
+        "input.ink.title": "手写样本",
+        "input.ink.badge": "手写",
+        "input.ink.enable": "记录手写样本（用于调优识别）",
+        "input.ink.hint": "打开后，每次点选手写候选会把笔迹、你选的字和候选排名存在本机，最多 1000 条。只存本机、不上传、不进备份；可导出后发给开发者评测。默认关闭。",
+        "input.ink.exportBtn": "导出样本",
+        "input.ink.clearBtn": "清除样本",
+        "input.ink.confirmClear": "再点一次确认清除",
+        "input.ink.cleared": "已清除",
+        "input.ink.count": "已记录 {n} 条",
+        "input.ink.exported": "已导出 {n} 条",
+        "input.ink.exportFailed": "导出失败",
         "input.assoc.backspaceClear": "联想时退格清除联想",
         "input.assoc.backspaceClearHint": "联想候选显示时按退格先清联想、恢复工具栏（不删字）；关闭则退格照旧删字。",
         "input.datetime.title": "日期时间候选",
@@ -978,6 +989,17 @@ const I18N = {
         "input.email.clearBtn": "Clear remembered emails",
         "input.email.confirmClear": "Tap again to confirm",
         "input.email.cleared": "Cleared",
+        "input.ink.title": "Handwriting samples",
+        "input.ink.badge": "Handwriting",
+        "input.ink.enable": "Record handwriting samples (to tune recognition)",
+        "input.ink.hint": "When on, each handwriting candidate you pick saves the strokes, the character you chose and its rank on this device (up to 1000). Nothing is uploaded or included in backups; export to share for evaluation. Off by default.",
+        "input.ink.exportBtn": "Export samples",
+        "input.ink.clearBtn": "Clear samples",
+        "input.ink.confirmClear": "Tap again to confirm",
+        "input.ink.cleared": "Cleared",
+        "input.ink.count": "{n} recorded",
+        "input.ink.exported": "Exported {n}",
+        "input.ink.exportFailed": "Export failed",
         "input.assoc.backspaceClear": "Backspace dismisses associations",
         "input.assoc.backspaceClearHint": "When association candidates are showing, backspace clears them and restores the toolbar (nothing deleted); off = backspace deletes as usual.",
         "input.datetime.title": "Date & time candidates",
@@ -1914,6 +1936,11 @@ window.FeelimeSettings = {
             case "backupStatus":
                 renderBackupStatus(event);
                 break;
+            case "inkSamplesExport":
+                setNote("inkSamplesNote", event.ok
+                    ? t("input.ink.exported", { n: event.count | 0 })
+                    : t("input.ink.exportFailed"));
+                break;
             case "webdavStatus":
                 renderWebdavStatus(event);
                 break;
@@ -2559,6 +2586,10 @@ function renderDoublePinyin(state) {
     if (document.activeElement !== $("emailMemoryOn")) {
         $("emailMemoryOn").checked = state.emailMemoryOn !== false;
     }
+    if (document.activeElement !== $("inkSamplesOn")) {
+        $("inkSamplesOn").checked = !!state.inkSamplesOn;
+    }
+    setNote("inkSamplesNote", t("input.ink.count", { n: state.inkSamplesCount | 0 }));
     if (document.activeElement !== $("backspaceAssocOn")) {
         $("backspaceAssocOn").checked = !!state.backspaceAssocOn;
     }
@@ -4095,6 +4126,31 @@ $("btnClearEmailMemory").addEventListener("click", () => {
     btn.textContent = t("input.email.confirmClear");
     clearEmailArmed = true;
     clearEmailTimer = setTimeout(disarmClearEmail, 4000);
+});
+$("inkSamplesOn").addEventListener("change", event => call("setInkSamples", event.target.checked));
+$("btnExportInkSamples").addEventListener("click", () => call("exportInkSamples"));
+let clearInkArmed = false;
+let clearInkTimer = null;
+function disarmClearInk() {
+    clearTimeout(clearInkTimer);
+    clearInkTimer = null;
+    clearInkArmed = false;
+    const btn = $("btnClearInkSamples");
+    btn.classList.remove("danger");
+    btn.textContent = t("input.ink.clearBtn");
+}
+$("btnClearInkSamples").addEventListener("click", () => {
+    if (clearInkArmed) {
+        disarmClearInk();
+        call("clearInkSamples");
+        setNote("inkSamplesNote", t("input.ink.cleared"));
+        return;
+    }
+    const btn = $("btnClearInkSamples");
+    btn.classList.add("danger");
+    btn.textContent = t("input.ink.confirmClear");
+    clearInkArmed = true;
+    clearInkTimer = setTimeout(disarmClearInk, 4000);
 });
 $("wxSlashOn").addEventListener("change", event => call("setWxSlash", event.target.checked));
 $("dynamicDateTimeOn").addEventListener("change", event => call("setDynamicDateTime", event.target.checked));
