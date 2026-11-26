@@ -9214,40 +9214,6 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                         },
                     },
                     {
-                        icon: ICONS.assoc, label: t("中文联想"), hold: 'associationOn',
-                        on: () => this.qRead('association', this.associationOn),
-                        state: () => (this.qRead('association', this.associationOn) ? t("开") : t("关")),
-                        tap: () => {
-                            if (typeof Native.setQuickPref !== 'function') return;
-                            this.associationOn = this.qFlip('association', this.associationOn);
-                            if (!this.associationOn) this.assocWords = [];
-                            quickPref('association', this.associationOn ? '1' : '0');
-                            rehome();
-                        },
-                    },
-                    {
-                        icon: ICONS.sound, label: t("按键声音"), hold: 'keySound',
-                        on: () => this.qRead('keySound', this.keySound),
-                        state: () => (this.qRead('keySound', this.keySound) ? t("开") : t("关")),
-                        tap: () => {
-                            if (typeof Native.setQuickPref !== 'function') return;
-                            this.keySound = this.qFlip('keySound', this.keySound);
-                            quickPref('keySound', this.keySound ? '1' : '0');
-                            rehome();
-                        },
-                    },
-                    {
-                        icon: ICONS.vibrate, label: t("按键振动"), hold: 'keyHaptic',
-                        on: () => this.qRead('keyHaptic', this.keyHaptic),
-                        state: () => (this.qRead('keyHaptic', this.keyHaptic) ? t("开") : t("关")),
-                        tap: () => {
-                            if (typeof Native.setQuickPref !== 'function') return;
-                            this.keyHaptic = this.qFlip('keyHaptic', this.keyHaptic);
-                            quickPref('keyHaptic', this.keyHaptic ? '1' : '0');
-                            rehome();
-                        },
-                    },
-                    {
                         icon: ICONS.height, label: t("键盘高度"), hold: 'kbHeight', state: () => t("调节"),
                         tap: () => this.enterHeightEdit(),
                     },

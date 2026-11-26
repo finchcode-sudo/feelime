@@ -4579,7 +4579,7 @@ test('setup button opens the quick settings panel; full settings entry calls ope
     const modernTiles = verAtLeast(KEYBOARD_VERSION, '3.72.0');
     equal(JSON.stringify(world.tileNames()),
         JSON.stringify(modernTiles ? [
-            '色彩模式', '中文联想', '按键声音', '按键振动',
+            '色彩模式',
             '键盘高度', '输入统计', '候选字号', '单手模式',
             '底部留白', '长按时长', '滑动选字',
             '编辑工具栏', '完整设置',
@@ -5666,27 +5666,16 @@ test('theme switches auto/light/dark from the settings panel', () => {
         equal(doc.documentElement.className, 'theme-light', 'auto back (system light)');
     }
 });
-test('quick tiles: toggles write setQuickPref, hello echo re-reads state', {since: '3.38.0'}, () => {
+test('quick tiles: 中文联想/按键声音/按键振动 moved to settings (toolbar tools still write setQuickPref)', {since: '3.38.0'}, () => {
     const world = fresh();
     world.hello({ associationOn: true, keySound: false, keyHaptic: false });
     world.tap(world.$('setupButton'));
-    const state = label => world.tile(label).querySelector('.qs-state').textContent;
-    equal(state('中文联想'), '开', 'association reflects hello');
-    world.tap(world.tile('中文联想'));
+    ['中文联想', '按键声音', '按键振动'].forEach(name =>
+        assert(!world.tileNames().includes(name), name + ' tile removed from the quick panel'));
+    world.tap(world.$('toolAssoc'));
     const assoc = world.native.of('setQuickPref').slice(-1)[0];
-    equal(`${assoc.args[0]}=${assoc.args[1]}`, 'association=0', 'tap writes the pref');
-    equal(state('中文联想'), '关', 'optimistic re-render flips the state line');
-    world.tap(world.tile('按键声音'));
-    const sound = world.native.of('setQuickPref').slice(-1)[0];
-    equal(`${sound.args[0]}=${sound.args[1]}`, 'keySound=1', 'sound toggle writes the pref');
-    equal(state('按键声音'), '开', 'sound state line follows');
-    // Native echo (broadcast → hello re-push) is authoritative: a value
-    // changed elsewhere lands in the open panel too.
-    world.hello({ associationOn: false, keySound: true });
-    equal(state('中文联想'), '关', 'hello echo wins for association');
-    equal(state('按键声音'), '开', 'hello echo keeps key sound');
-    const calls = world.native.of('setQuickPref').map(c => c.args[2]);
-    assert(calls.every(tok => tok === world.tokenValue), 'every write carries the page token');
+    equal(`${assoc.args[0]}=${assoc.args[1]}`, 'association=0', 'toolbar tool still writes the pref');
+    assert(world.native.of('setQuickPref').every(c => c.args[2] === world.tokenValue), 'writes carry the page token');
 });
 
 // #38 单手直达切换：开关键不再「关→左→右」三档循环——单击 = 开
@@ -5908,9 +5897,9 @@ test('quick tiles: gear tile opens full settings; old APKs never fake state', {s
     stale.hello({ keySound: false });
     stale.context.window.FeelimeNative.setQuickPref = undefined;
     stale.tap(stale.$('setupButton'));
-    stale.tap(stale.tile('按键振动'));
-    equal(stale.tile('按键振动').querySelector('.qs-state').textContent, '关',
-        'state stays off without the native channel');
+    stale.tap(stale.$('toolVibrate'));
+    equal(stale.native.of('setQuickPref').length, 0,
+        'no native channel: nothing is written');
 });
 
 test('first paint: never guess a system theme before the bridge speaks', () => {
