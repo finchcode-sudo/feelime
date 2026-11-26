@@ -142,6 +142,7 @@
         "已恢复默认高度": "Default height restored",
         "输入法快捷切换": "Quick switch",
         "长按菜单": "Keyboard menu",
+        "删除": "Delete", "上一页": "Previous page", "下一页": "Next page",
         "定制按键": "Custom keys",
         "返回设置首页": "Back to quick settings",
         "收起设置": "Close quick settings",
@@ -667,6 +668,9 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
         custom: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h3v4h4v3h-7z',
         shift: 'M12 5l7 7h-4v6H9v-6H5z',
         caps: 'M12 3l7 7h-4v6H9v-6H5zM7 19h10v2H7z',
+        arrowUp: 'M7 14l5-5 5 5z',
+        arrowDown: 'M7 10l5 5 5-5z',
+        returnKey: 'M19 7v4H5.83l3.58-3.59L8 6l-6 6 6 6 1.41-1.41L5.83 13H21V7z',
         backspace: 'M22 3H7c-.69 0-1.23.35-1.59.88L0 12l5.41 8.11c.36.53.9.89 1.59.89h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-4.59 12.59L16 17l-2.5-2.5L11 17l-1.41-1.41L12.09 13 9.59 10.5 11 9.1l2.5 2.5L16 9.1l1.41 1.41L14.91 13z',
         mic: 'M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z M19 12a7 7 0 0 1-14 0H3a9 9 0 0 0 8 8.94V23h2v-2.06A9 9 0 0 0 21 12h-2z',
         arrowLeft: 'M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z',
@@ -2441,6 +2445,7 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
             // Infinite horizontal strip: dragging near the right edge (or a
             // too-short strip) fetches the next candidate page and appends it.
             document.getElementById('expandGrid').addEventListener('scroll', () => this.maybeLoadMoreCandidates());
+            this.buildExpandRail();
             // The collapsed bar shares the pool - swiping it
             // near its end pulls the next page too.
             document.getElementById('candidates').addEventListener('scroll', () => this.maybeLoadMoreCandidates());
@@ -5673,6 +5678,32 @@ const TOOLBAR_DEFAULT = { left: ['ctrl', 'ime'], right: ['clipboard', 'favorites
                 modeLabel(this.mode);
             toggle.querySelector('.cn-sub').textContent =
                 modeLabel(target);
+        }
+
+        /** 展开候选面板右侧一列：删除、上翻、下翻、回车（对标常见中文键盘）。 */
+        buildExpandRail() {
+            const body = document.querySelector('#expandLayer .expand-body');
+            if (!body || document.getElementById('expandRail')) return;
+            const grid = document.getElementById('expandGrid');
+            const rail = document.createElement('div');
+            rail.id = 'expandRail';
+            const page = dir => () => {
+                grid.scrollBy({ top: dir * Math.max(40, grid.clientHeight * 0.9), behavior: 'smooth' });
+            };
+            const del = this.specialKey('rail-del', ICONS.backspace, () => this.backspaceAction(), 'kb-special', 'repeat');
+            del.setAttribute('aria-label', t("删除"));
+            const up = this.specialKey('page-up', ICONS.arrowUp, page(-1), 'kb-special');
+            up.setAttribute('aria-label', t("上一页"));
+            const down = this.specialKey('page-down', ICONS.arrowDown, page(1), 'kb-special');
+            down.setAttribute('aria-label', t("下一页"));
+            // 回车沿用主键盘那一个（组合中=确认高亮候选，否则换行）。
+            const enter = this.enterKey('');
+            enter.id = '';
+            enter.textContent = '';
+            enter.append(ICONS.returnKey.cloneNode(true));
+            enter.setAttribute('aria-label', t("换行"));
+            rail.append(del, up, down, enter);
+            body.append(rail);
         }
 
         updateEnterLabel() {

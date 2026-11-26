@@ -2534,6 +2534,21 @@ body.expanded #preeditLine { display: none; }
  * row - a 12-character word must be READABLE (the fixed 5-column grid
  * ellipsised everything past two glyphs). Denser type and padding show
  * more candidates per screen. */
+/* 右侧一列：删除 / 上翻 / 下翻 / 回车。 */
+#expandRail {
+    flex: none;
+    width: 64px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 6px 6px 6px 4px;
+}
+#expandRail .kb-key {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+    min-height: 0;
+}
 #expandGrid {
     flex: 1;
     min-width: 0;

@@ -5865,6 +5865,18 @@ test('quick tiles: 快捷切换 and 长按菜单 tiles are removed from the quic
     assert(!world.tileNames().includes('长按菜单'), 'menu tile removed');
 });
 
+test('expanded candidate panel has a right rail: delete, page up, page down, enter', () => {
+    const world = fresh();
+    world.hello();
+    const rail = world.$('expandRail');
+    assert(rail, 'rail exists');
+    equal(rail.children.length, 4, 'four keys');
+    equal(JSON.stringify([...rail.children].map(k => k.dataset.role)),
+        JSON.stringify(['rail-del', 'page-up', 'page-down', 'enter']), 'key roles in order');
+    world.tap(rail.children[3]);
+    assert(world.native.of('enter').length >= 1, 'rail enter reaches native');
+});
+
 test('quick tiles grid is strictly 2x4 (no third row, ever)', {since: '3.44.0'}, () => {
     const world = fresh();
     world.hello();
