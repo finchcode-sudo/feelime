@@ -21,7 +21,6 @@ const $ = id => document.getElementById(id);
 const KEYBOARD_MODES = [
     ['direct', '英文直出'], ['pinyin', '全拼'], ['double-pinyin', '双拼'],
     ['t9', '九宫格'], ['stroke', '笔画'], ['flypy', '音形'],
-    ['handwriting', '手写'],
     ['french', '法语'], ['russian', '俄语'], ['japanese', '日语'],
 ];
 const DEFAULT_MENU_MODES = ['direct', 'pinyin', 'double-pinyin', 't9', 'stroke'];

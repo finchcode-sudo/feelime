@@ -3938,8 +3938,8 @@ test('long-press menu filters to the enabled keyboards', {since: '3.59.0'}, () =
     // round-6：菜单不再带「快捷切换」尾行。
     // 顺序 = MODES 键序 ∩ 勾选集（direct < t9 < handwriting）。
     equal(JSON.stringify(titles.map(x => x.replace(/^(En|九|…)/, ''))),
-        JSON.stringify(['英文 Direct', '九宫格 T9', '手写 Handwriting']),
-        'menu lists only enabled keyboards');
+        JSON.stringify(['英文 Direct', '九宫格 T9']),
+        'menu lists only enabled keyboards (handwriting moved to the toolbar)');
 });
 
 
@@ -5013,7 +5013,7 @@ test('toolbar edit mode: long-press enters, × removes to pool, tap adds back, d
 
     // 默认 5 个工具全在栏上（left=[ctrl,ime] right=[clipboard,favorites,mic]）；
     // 仓库里是 8 个默认不上栏的开关型/动作型工具（动态创建）。
-    equal(w.$('toolbarEditorGrid').children.length, 11, 'pool starts with the 11 extra tools (#33-1 gear + #39-10 edit + #39-12 custom + 离线翻译)');
+    equal(w.$('toolbarEditorGrid').children.length, 12, 'pool starts with the 12 extra tools (手写 + #33-1 gear + #39-10 edit + #39-12 custom + 离线翻译)');
     ['toolTheme', 'toolVibrate', 'toolSound', 'toolAssoc', 'toolOneHand',
      'toolNumpad', 'toolEmoji', 'editTool', 'toolCustom'].forEach(id => {
         assert(w.$(id), id + ' created');
@@ -5031,7 +5031,7 @@ test('toolbar edit mode: long-press enters, × removes to pool, tap adds back, d
     w.touchDown(x);
     w.touchUp(x);
     equal(kb().toolbarRight.join(','), 'clipboard,mic', '× removes favorites from right group');
-    equal(w.$('toolbarEditorGrid').children.length, 12, 'removed tool joins the 11 extra tools');
+    equal(w.$('toolbarEditorGrid').children.length, 13, 'removed tool joins the 11 extra tools');
 
     // 点仓库里的 favorites 加回（right 组未满 → 追加到队尾）。
     // 编辑态点仓库只做「上工具栏」：favorites 的 click 直连
@@ -5044,7 +5044,7 @@ test('toolbar edit mode: long-press enters, × removes to pool, tap adds back, d
     w.touchDown(fav);
     w.touchUp(fav);
     equal(kb().toolbarRight.join(','), 'clipboard,mic,favorites', 'pool tap appends to right group');
-    equal(w.$('toolbarEditorGrid').children.length, 11, 'pool back to the 11 extra tools');
+    equal(w.$('toolbarEditorGrid').children.length, 12, 'pool back to the 11 extra tools');
 
     // #39-12：池里的定制按键必须能上栏——TOOL_CATALOG 漏登记时按钮
     // 照样创建，但接线循环遍历目录，池里那颗点不动（真机实录）。
@@ -5081,12 +5081,12 @@ test('toolbar edit mode: long-press enters, × removes to pool, tap adds back, d
     w.touchDown(xOf('mic'));
     w.touchUp(xOf('mic'));
     equal(kb().toolbarRight.join(','), 'clipboard', 'two removals land both in the pool');
-    equal(w.$('toolbarEditorGrid').children.length, 13,
+    equal(w.$('toolbarEditorGrid').children.length, 14,
         'pool holds both removed tools + 11 extra tools (no innerHTML wipe)');
     w.tap(w.$('toolbarEditCancel'));
     equal(kb().toolbarLeft.join(','), 'ctrl,ime', 'cancel restores left snapshot');
     equal(kb().toolbarRight.join(','), 'clipboard,mic,favorites', 'cancel restores right snapshot');
-    equal(w.$('toolbarEditorGrid').children.length, 11,
+    equal(w.$('toolbarEditorGrid').children.length, 12,
         'pool drains back to the 11 extra tools after cancel');
     equal(w.native.of('setQuickPref').filter(c => c.args[0] === 'toolbarLayout').length, 1,
         'cancel never saves');
@@ -5104,7 +5104,7 @@ test('toolbar edit mode: long-press enters, × removes to pool, tap adds back, d
             w.touchUp(x);
         });
     equal(kb().toolbarLeft.length + kb().toolbarRight.length, 0, 'bar fully stripped');
-    equal(w.$('toolbarEditorGrid').children.length, 16, 'all sixteen tools in the pool (#33-1 gear + #39-10 edit + #39-12 custom + 离线翻译)');
+    equal(w.$('toolbarEditorGrid').children.length, 17, 'all seventeen tools in the pool (#33-1 gear + #39-10 edit + #39-12 custom + 离线翻译)');
     w.tap(w.$('toolbarEditDone'));
     equal(kb().toolbarEdit, false, 'empty layout saves fine');
     w.touchDown(w.$('candidateBar'));
@@ -5157,7 +5157,7 @@ test('toolbar edit mode: long-press enters, × removes to pool, tap adds back, d
     equal(st.toolbarRight.includes('ime'), true, 'ime lands in the right group');
     equal(st.toolbarLeft.length, 1, 'left group keeps one (the displaced tool)');
     equal(st.toolbarLeft.length + st.toolbarRight.length, 5, 'no tool lost in the swap');
-    equal(poolNow.children.length, 11, 'pool back to the extra tools only');
+    equal(poolNow.children.length, 12, 'pool back to the extra tools only');
     w.tap(w.$('toolbarEditCancel'));
 });
 
@@ -9006,26 +9006,19 @@ test('delete gesture: handwriting backspace keeps ink semantics, no gestures', {
     equal(world.native.of('backspaceN').length, 0, 'no editor deletes');
 });
 
-test('handwriting: menu entry gated by strictReady (missing field = no entry)', {since: '3.59.0'}, () => {
-    // round-6：手写默认不进菜单——先显式勾选（用户主动开启实验性能力）。
-    const legacy = fresh();
-    legacy.context.window.localStorage.setItem('feelime_menu_modes',
+test('handwriting: not in the keyboard menu, reached from the toolbar button', {since: '3.59.0'}, () => {
+    // 手写从键盘选择移到工具栏：即使旧的菜单配置里勾了，菜单也不列。
+    const world = fresh({ engineDataReady: HANDWRITING_READY });
+    world.context.window.localStorage.setItem('feelime_menu_modes',
         JSON.stringify(['direct', 'handwriting', 'pinyin']));
-    legacy.context.window.Feelime.toggleModeMenu();
-    const item = [...legacy.$('modeMenu').children].find(el => el.textContent.includes('手写'));
-    assert(item.classList.contains('preparing'), 'missing ready field renders preparing');
-    legacy.tap(item);
-    equal(legacy.native.of('selectMode').filter(c => c.args[0] === 'handwriting').length, 0,
-        'preparing handwriting is not clickable');
-    const ready = fresh({ engineDataReady: HANDWRITING_READY });
-    ready.context.window.localStorage.setItem('feelime_menu_modes',
-        JSON.stringify(['direct', 'handwriting', 'pinyin']));
-    ready.context.window.Feelime.toggleModeMenu();
-    const readyItem = [...ready.$('modeMenu').children].find(el => el.textContent.includes('手写'));
-    equal(readyItem.textContent, '手手写 Handwriting', 'shorthand leads, title follows');
-    ready.tap(readyItem);
-    equal(ready.native.of('selectMode').filter(c => c.args[0] === 'handwriting').length, 1,
-        'ready handwriting selects');
+    world.context.window.Feelime.toggleModeMenu();
+    const item = [...world.$('modeMenu').children].find(el => el.textContent.includes('手写'));
+    assert(!item, 'menu does not list handwriting');
+    const tool = world.$('toolHandwriting');
+    assert(tool, 'toolbar editor pool has the handwriting tool');
+    world.tap(tool);
+    equal(world.native.of('selectMode').filter(c => c.args[0] === 'handwriting').length, 1,
+        'toolbar button selects handwriting');
 });
 
 
