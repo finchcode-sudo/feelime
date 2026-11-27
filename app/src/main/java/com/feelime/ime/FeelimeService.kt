@@ -2570,7 +2570,7 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
             return
         }
         if (learn) {
-            if (wordsOn) {
+            if (wordsOn && info.inputType and InputType.TYPE_MASK_VARIATION != InputType.TYPE_TEXT_VARIATION_URI) {
                 com.feelime.ime.engine.EnglishSuggestStore.finishedWord(before)?.let {
                     com.feelime.ime.engine.EnglishSuggestStore.learn(applicationContext, it)
                 }
@@ -2646,7 +2646,6 @@ class FeelimeService : InputMethodService(), AsrEngine.Listener, HandwritingEngi
         if (type and InputType.TYPE_MASK_CLASS != InputType.TYPE_CLASS_TEXT) return false
         if (type and InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS != 0) return false
         return when (type and InputType.TYPE_MASK_VARIATION) {
-            InputType.TYPE_TEXT_VARIATION_URI,
             InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS,
             InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS,
             InputType.TYPE_TEXT_VARIATION_FILTER -> false
