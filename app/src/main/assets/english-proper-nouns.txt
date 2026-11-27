@@ -549,3 +549,7 @@ Jordan
 Kobe
 Curry
 LeBron
+DuckDuckGo	!
+OpenClaw	!
+QClaw	!
+Shizuku	!

@@ -53,7 +53,8 @@ object CustomPhraseStore {
     // 19：builtin-words.tsv 新增「怎么回事」（zenme / zenmo 两种码 + 简拼）。
     // 20：builtin-words.tsv 批量加入含「么」高频词的 mo 变体（scripts/generate-me-mo-variants.py）。
     // 24：builtin-words.tsv 新增「杜富国」。
-    private const val DERIVE_VERSION = 24
+    // 25：builtin-words.tsv 新增「爱你老己」「我要验牌」「高市早苗」「内坦亚胡」。
+    private const val DERIVE_VERSION = 25
 
     private const val T9_DIGITS = "22233344455566677778889999"
 
